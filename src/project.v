@@ -23,6 +23,9 @@ module tt_um_yjeum11 (
   reg [15:0] res;
   assign uo_out = res[7:0];
 
+  assign uio_oe = '0;
+  assign uio_out = '0;
+
   serial_mult #(8) my_mult (
       .clk(clk), .rst_n(rst_n),
       .A(ui_in), .B(uio_in),
@@ -37,42 +40,3 @@ module tt_um_yjeum11 (
 
 endmodule
 
-// module goertzel_core (
-//     input wire clk, rst_n,
-//     input wire [7:0] i_sample,
-//     input wire i_sample_valid,
-//     output wire o_sample_ready
-// );
-// 
-// reg [7:0] sample;
-// reg [$clog2(BLOCK_SIZE)-1:0] sample_counter, next_sample_counter;
-// wire block_done;
-// 
-// reg [23:0] s_prev, s_prev2;
-// reg [23:0] row1_coeff;
-// 
-// // every cycle, 2 * (s_prev * ROW1_COEFF) >> frac_bits
-// 
-// assign block_done = sample_counter == 511;
-// 
-// always @* begin
-//     if (~block_done) begin
-//         next_sample_counter = sample_counter + 1;
-//     end else begin
-//         next_sample_counter = '0;
-//     end
-// end
-// 
-// always @(posedge clk) begin
-//     if (~rst_n) begin
-//         sample <= '0;
-//         row1_coeff <= 24'd1019
-//     end else begin
-//         if (i_sample_valid) begin
-//             sample <= i_sample;
-//             sample_counter <= next_sample_counter;
-//         end
-//     end
-// end
-// 
-// endmodule
