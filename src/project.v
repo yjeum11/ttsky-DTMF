@@ -20,16 +20,20 @@ module tt_um_yjeum11 (
     input  wire       rst_n     // reset_n - low to reset
 );
 
-  wire input_valid;
-  assign input_valid = uio_in[0];
+  reg [15:0] res;
+  assign uo_out = res[7:0];
 
-  // All output pins must be assigned. If not used, assign to 0.
-  assign uo_out  = left[15:8];  // Example: ou_out is the sum of ui_in and uio_in
-  assign uio_out = '0;
-  assign uio_oe = '1;
+  serial_mult #(8) my_mult (
+      .clk(clk), .rst_n(rst_n),
+      .A(ui_in), .B(uio_in),
+      .AB_valid(1'b1),
+      .AB_ready(),
+      .Q(res),
+      .Q_valid()
+  );
 
   // List all unused inputs to prevent warnings
-  wire _unused = &{ena, clk, rst_n, 1'b0};
+  wire _unused = &{ena, 1'b0};
 
 endmodule
 
