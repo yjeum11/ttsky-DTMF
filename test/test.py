@@ -3,8 +3,8 @@
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles
-
+from cocotb.triggers import ClockCycles, RisingEdge
+import random
 
 @cocotb.test()
 async def test_project(dut):
@@ -16,25 +16,33 @@ async def test_project(dut):
 
     # Reset
     dut._log.info("Reset")
-    dut.ena.value = 1
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
+    # dut.ui_in.value = 0
+    # dut.uio_in.value = 0
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
 
-    dut._log.info("Test project behavior")
+    await test_mult(dut, 10, 10)
 
-    # Set the input values you want to test
-    dut.ui_in.value = 20
-    dut.uio_in.value = 30
+    # await test_mult_random(dut, 1000, 12)
 
-    # Wait for one clock cycle to see the output values
+    await ClockCycles(dut.clk, 10)
+
+async def test_mult_random(dut, count, bit_width=12):
+    for _ in range(count):
+        x = random.randint(0, 1<<bit_width-1)
+        y = random.randint(0, 1<<bit_width-1)
+        await test_mult(dut, x, y)
+
+async def test_mult(dut, x, y):
+    dut.A.value = x
+    dut.B.value = y
+    if dut.AB_ready.value != 1:
+        await RisingEdge(dut.AB_ready)
+    dut.AB_valid.value = 1
     await ClockCycles(dut.clk, 1)
-
-    # The following assersion is just an example of how to check the output values.
-    # Change it to match the actual expected output of your module:
-    assert dut.uo_out.value == 50
-
-    # Keep testing the module by changing the input values, waiting for
-    # one or more clock cycles, and asserting the expected output values.
+    dut.AB_valid.value = 0
+    await RisingEdge(dut.Q_valid)
+    dut.AB_valid.value = 0
+    assert dut.Q.value == x * y
+    await ClockCycles(dut.clk, 1)
