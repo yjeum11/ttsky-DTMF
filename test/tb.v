@@ -10,7 +10,7 @@ module tb ();
   initial begin
     $dumpfile("tb.fst");
     $dumpvars(0, tb);
-    #1;
+    // #1;
   end
 
   // Wire up the inputs and outputs:
@@ -40,6 +40,22 @@ module tb ();
       .AB_ready(AB_ready),
       .Q(Q),
       .Q_valid(Q_valid)
+  );
+
+  reg [7:0] sample;
+  reg sample_valid, sample_ready;
+  reg [10:0] coeff;
+  reg signed [23:0] s_prev, s_prev2;
+  reg valid;
+
+  goertzel_iir my_iir (
+    .clk(clk), .rst_n(rst_n),
+    .sample(sample),
+    .sample_valid(sample_valid),
+    .sample_ready(sample_ready),
+    .coeff(coeff),
+    .s_prev(s_prev), .s_prev2(s_prev2),
+    .valid(valid)
   );
 
 //   // Replace tt_um_example with your module name:

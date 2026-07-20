@@ -1,8 +1,8 @@
 `default_nettype none
 
-`define STATE_WAITING 0
-`define STATE_CALC 1
-`define STATE_OUTPUT 2
+`define MULTIPLIER_STATE_WAITING 0
+`define MULTIPLIER_STATE_CALC 1
+`define MULTIPLIER_STATE_OUTPUT 2
 
 module serial_mult #(
     parameter WIDTH = 4'd8
@@ -16,7 +16,7 @@ module serial_mult #(
 );
 
     reg [WIDTH-1:0] sum_reg, B_reg;
-    reg [4:0] counter;
+    reg [$clog2(WIDTH)-1:0] counter;
 
     reg [1:0] state, next_state;
     reg load_inputs, shift_regs;
@@ -55,6 +55,25 @@ module serial_mult #(
     end
 
     // state machine
+    //
+    always @* begin
+        next_state = state;
+        case (state) 
+            `MULTIPLIER_STATE_WAITING: begin
+                if (AB_valid) begin
+                    next_state = `MULTIPLIER_STATE_CALC;
+                end
+            end
+            `MULTIPLIER_STATE_CALC: begin
+                if (counter == 0) begin
+                    next_state = `MULTIPLIER_STATE_OUTPUT;
+                end 
+            end
+            `MULTIPLIER_STATE_OUTPUT: begin
+                next_state = `MULTIPLIER_STATE_WAITING;
+            end
+        endcase 
+    end
 
     always @* begin
         load_inputs = 0;
@@ -63,25 +82,20 @@ module serial_mult #(
         Q_valid = 0;
         AB_ready = 0;
         shift_regs = 0;
-        next_state = state;
         case (state) 
-            `STATE_WAITING: begin
+            `MULTIPLIER_STATE_WAITING: begin
                 if (AB_valid) begin
-                    next_state = `STATE_CALC;
                     load_inputs = 1;
                 end
                 AB_ready = 1;
             end
-            `STATE_CALC: begin
-                if (counter == 0) begin
-                    next_state = `STATE_OUTPUT;
-                end else begin
+            `MULTIPLIER_STATE_CALC: begin
+                if (counter != 0) begin
                     shift_regs = 1;
                     counter_dec = 1;
                 end
             end
-            `STATE_OUTPUT: begin
-                next_state = `STATE_WAITING;
+            `MULTIPLIER_STATE_OUTPUT: begin
                 Q_valid = 1;
                 counter_load = 1;
             end
@@ -90,7 +104,7 @@ module serial_mult #(
 
     always @(posedge clk) begin
         if (~rst_n) begin
-            state <= `STATE_WAITING;
+            state <= `MULTIPLIER_STATE_WAITING;
         end else begin
             state <= next_state;
         end

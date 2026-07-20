@@ -20,20 +20,28 @@ module tt_um_yjeum11 (
     input  wire       rst_n     // reset_n - low to reset
 );
 
-  reg [15:0] res;
-  assign uo_out = res[7:0];
+  reg [7:0] sample;
+  reg sample_valid, sample_ready;
+  reg [10:0] coeff;
+  reg signed [23:0] s_prev, s_prev2;
+  reg valid;
 
-  assign uio_oe = '0;
-  assign uio_out = '0;
-
-  serial_mult #(8) my_mult (
-      .clk(clk), .rst_n(rst_n),
-      .A(ui_in), .B(uio_in),
-      .AB_valid(1'b1),
-      .AB_ready(),
-      .Q(res),
-      .Q_valid()
+  goertzel_iir my_iir (
+    .clk(clk), .rst_n(rst_n),
+    .sample(sample),
+    .sample_valid(sample_valid),
+    .sample_ready(sample_ready),
+    .coeff(coeff),
+    .s_prev(s_prev), .s_prev2(s_prev2),
+    .valid(valid)
   );
+
+  assign sample = ui_in;
+  assign uo_out = s_prev[7:0];
+  assign uio_out = s_prev[15:8];
+  assign uio_oe = '1;
+  assign coeff = '1;
+  assign sample_valid = '1;
 
   // List all unused inputs to prevent warnings
   wire _unused = &{ena, 1'b0};
