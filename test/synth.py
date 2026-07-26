@@ -56,7 +56,7 @@ def synthesize(digits, path):
 
 if __name__ == "__main__":
     digits = sys.argv[1] if len(sys.argv) > 1 else "149*45"
-    out = sys.argv[2] if len(sys.argv) > 2 else "test_dtmf.wav"
+    out = sys.argv[2] if len(sys.argv) > 2 else "dtmf.wav"
     synthesize(digits, out)
     print(f"Wrote {out} (8-bit unsigned PCM) with digits: {digits}")
 
