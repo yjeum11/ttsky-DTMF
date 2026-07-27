@@ -2,7 +2,7 @@ import sys
 import wave
 import numpy as np
 
-BLOCK_SIZE = 512
+BLOCK_SIZE = 8
 FRAC_BITS = 10
 POWER_SHIFT = 2 * (BLOCK_SIZE.bit_length() - 1)
 
@@ -17,13 +17,11 @@ def goertzel_sprevs(samples, sample_rate, target_freq, frac_bits=FRAC_BITS):
     s_prev2 = 0
     for x in samples:
         x = int(x)
-        # Fixed-point multiply: integer multiply, then rescale by
-        # right-shifting off the fractional bits -- free in hardware.
         term = (s_prev * cr_int) >> (frac_bits-1)
         s = x + term - s_prev2
-        s_prevs.append(s_prev)
         s_prev2 = s_prev
         s_prev = s
+        s_prevs.append(s_prev)
 
     return s_prevs
 
@@ -41,20 +39,22 @@ def goertzel_power_fixed(samples: np.ndarray, sample_rate: float,
     s_prev2 = 0
     for x in samples:
         x = int(x)
-        # Fixed-point multiply: integer multiply, then rescale by
-        # right-shifting off the fractional bits -- free in hardware.
         term = (s_prev * cr_int) >> (frac_bits-1)
         s = x + term - s_prev2
-        s_prevs.append(s_prev)
         s_prev2 = s_prev
         s_prev = s
+        s_prevs.append(s_prev)
 
-    print(s_prevs)
+    print(f"s_prevs: {s_prevs}")
 
-    cr_s_prev = (s_prev * cr_int) >> frac_bits  # = cos(omega0) * s_prev
-    power = s_prev2 ** 2 + s_prev ** 2 - 2 * cr_s_prev * s_prev2
+    print(f"s_prev: {s_prev}, s_prev2: {s_prev2}")
 
-    return power >> POWER_SHIFT
+    cr_s_prev = (s_prev * cr_int) >> (frac_bits - 1)  # = cos(omega0) * s_prev
+    power = s_prev2 ** 2 + s_prev ** 2 - cr_s_prev * s_prev2
+
+    print(power)
+
+    return power
 
 def load_wav_mono(path: str):
     with wave.open(path, "rb") as wf:
@@ -80,4 +80,4 @@ def load_wav_mono(path: str):
 
 if __name__ == "__main__":
     wave_data, sample_rate = load_wav_mono(sys.argv[1])
-    goertzel_power_fixed(wave_data[0:10], sample_rate, 697)
+    goertzel_power_fixed(wave_data[0:8], sample_rate, 697)

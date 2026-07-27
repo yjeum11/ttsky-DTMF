@@ -3,10 +3,12 @@
 
 import cocotb
 from cocotb.clock import Clock
+from cocotb.handle import Immediate
 from cocotb.triggers import ClockCycles, RisingEdge
 import random
 import wave
-from dtmf_goertzel import goertzel_sprevs
+import numpy as np
+from dtmf_goertzel import goertzel_power_fixed, goertzel_sprevs
 
 # @cocotb.test()
 # async def test_mult(dut):
@@ -19,43 +21,55 @@ from dtmf_goertzel import goertzel_sprevs
 #     await mult(dut, 15, 121)
 
 # @cocotb.test()
-# async def test_iir(dut):
-#     # Set the clock period to 10 us (100 KHz)
-#     clock = Clock(dut.clk, 10, unit="us")
-#     cocotb.start_soon(clock.start())
-#     dut.sample.value = 0
-#     dut.sample_valid.value = 0
-#     dut.coeff.value = 0
-#     await reset_dut(dut)
-#     await iir(dut)
+async def test_iir(dut):
+    # Set the clock period to 10 us (100 KHz)
+    clock = Clock(dut.clk, 10, unit="us")
+    cocotb.start_soon(clock.start())
+    dut.sample.value = 0
+    dut.sample_valid.value = 0
+    dut.coeff.value = 0
+    await reset_dut(dut)
+    await iir(dut)
 
 @cocotb.test()
 async def test_power(dut):
+    block_size = dut.my_power.BLOCK_SIZE.value.to_unsigned()
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
     dut.sample.value = 0
     dut.sample_valid.value = 0
     await reset_dut(dut)
     samples = []
-    with wave.open("./test_dtmf.wav", 'rb') as wavfile:
-        b = wavfile.readframes(16)
-        samples = [x - 128 for x in list(b)]
+    with wave.open("./dtmf.wav", 'rb') as wavfile:
+        n_frames = wavfile.getnframes()
+        b = wavfile.readframes(n_frames)
+        samples = np.frombuffer(b, dtype=np.uint8).astype(np.float64) - 128.0
+    samples = samples[100000:100000+512]
 
     dut.start.value = 1;
+    s_prevs = []
+    print("testing power")
 
     for s in samples:
-        if dut.sample_ready.value != 1:
-            await RisingEdge(dut.sample_ready)
+        s = int(s)
+        while dut.sample_ready.value != 1:
+            await RisingEdge(dut.clk)
         dut.sample_valid.value = 1
         dut.sample.value = s
-        await ClockCycles(dut.clk, 1)
+        await RisingEdge(dut.clk)
         dut.sample_valid.value = 0
+        await RisingEdge(dut.clk)
+        s_prevs.append(dut.my_power.s_prev.value.to_signed())
 
+    golden = goertzel_power_fixed(samples, 41000, 697)
 
-        
+    await RisingEdge(dut.power_valid)
 
+    # print(f"dut.s_prevs = {s_prevs}")
+    print(f"dut.power = {dut.power.value.to_signed()}")
+    print(f"golden power = {golden}")
 
-
+    assert dut.power.value.to_signed() == golden
 
 async def reset_dut(dut):
     # Reset
@@ -88,15 +102,16 @@ async def mult(dut, x, y):
 async def iir(dut):
     coeff = 1019 # coeff for row 1
     samples = []
-    with wave.open("./test_dtmf.wav", 'rb') as wavfile:
+    with wave.open("./dtmf.wav", 'rb') as wavfile:
         n_frames = wavfile.getnframes()
-        b = wavfile.readframes(4)
-        samples = [x - 128 for x in list(b)]
+        b = wavfile.readframes(512)
+        samples = np.frombuffer(b, dtype=np.uint8).astype(np.float64) - 128.0
 
     dut.coeff.value = coeff
 
     s_prev = []
     for s in samples:
+        s = int(s)
         dut.sample.value = s
         if dut.sample_ready.value != 1:
             await RisingEdge(dut.sample_ready)

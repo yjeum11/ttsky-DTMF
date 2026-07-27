@@ -28,6 +28,11 @@ module tt_um_yjeum11 #(
     reg signed [10:0] coeff;
     reg iir_valid;
 
+    reg [6:0] sample_ready_gen;
+
+    assign uio_out[1] = &{sample_ready_gen};
+    assign uio_oe[1] = 1'b1;
+
 
 
 endmodule

@@ -55,12 +55,11 @@ always @(posedge clk) begin
 end
 
 // state machine
-reg [2:0] state, next_state;
-localparam STATE_RST = 0;
-localparam STATE_INIT = 1;
-localparam STATE_MULT_INIT = 2;
-localparam STATE_MULT_WAIT = 3;
-
+reg [3:0] state, next_state;
+localparam STATE_RST       = 0;
+localparam STATE_MULT_INIT = 1;
+localparam STATE_MULT_WAIT = 2;
+localparam STATE_OUTPUT    = 3;
 
 always @* begin
     sample_ready = 1'b0;
@@ -75,13 +74,6 @@ always @* begin
                 sample_load = 1'b1;
             end
         end
-        STATE_INIT: begin
-            sample_ready = 1'b1;
-            valid = 1'b1;
-            if (sample_valid) begin
-                sample_load = 1'b1;
-            end
-        end
         STATE_MULT_INIT: begin
             AB_valid = 1'b1;
         end
@@ -89,6 +81,9 @@ always @* begin
             if (Q_valid) begin
                 internal_load = 1'b1;
             end
+        end
+        STATE_OUTPUT: begin
+            valid = 1'b1;
         end
     endcase
 end
@@ -101,11 +96,6 @@ always @* begin
                 next_state = STATE_MULT_INIT;
             end
         end
-        STATE_INIT: begin
-            if (sample_valid) begin
-                next_state = STATE_MULT_INIT;
-            end
-        end
         STATE_MULT_INIT: begin
             if (AB_ready) begin
                 next_state = STATE_MULT_WAIT;
@@ -113,8 +103,11 @@ always @* begin
         end
         STATE_MULT_WAIT: begin
             if (Q_valid) begin
-                next_state = STATE_INIT;
+                next_state = STATE_OUTPUT;
             end
+        end
+        STATE_OUTPUT: begin
+            next_state = STATE_RST;
         end
     endcase
 end

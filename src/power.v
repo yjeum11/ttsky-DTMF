@@ -1,6 +1,6 @@
 `default_nettype none
 
-module power #(
+module power_calculate #(
     parameter BLOCK_SIZE = 512,
     parameter BLOCK_SIZE_BITS = $clog2(BLOCK_SIZE)
 )(
@@ -27,6 +27,7 @@ assign sample_ready = ~stop_samples & iir_sample_ready;
 
 goertzel_iir iir (
     .clk(clk), .rst_n(rst_n),
+    .sample(sample),
     .sample_valid(sample_valid),
     .sample_ready(iir_sample_ready),
     .coeff(coeff),
@@ -46,7 +47,7 @@ assign A = (selA == 0) ? s_prev :
 assign B = (selB == 0) ? s_prev :
            (selB == 1) ? -s_prev2 :
            (selB == 2) ? {13'b0, coeff} :
-           (selB == 3) ? Q[23:0] :
+           (selB == 3) ? Q[23+9:0+9] :
            '0;
 
 serial_mult #(24) mult (
@@ -78,7 +79,7 @@ always @(posedge clk) begin
     else begin
         if (power_clr)
             power <= '0;
-        if (power_acc)
+        else if (power_acc)
             power <= power + Q;
     end
 end

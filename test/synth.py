@@ -19,7 +19,7 @@ SAMPLE_RATE = 44100
 TONE_MS = 1000
 GAP_MS = 100
 
-def make_tone(digit, sample_rate=SAMPLE_RATE, amplitude=0.9, noise_amplitude=0.01):
+def make_tone(digit, sample_rate=SAMPLE_RATE, amplitude=0.4, noise_amplitude=0.01):
     f_row, f_col = KEYPAD[digit]
     n = int(sample_rate * TONE_MS / 1000.0)
     t = np.arange(n) / sample_rate
@@ -39,7 +39,7 @@ def synthesize(digits, path):
     spec's convention that 8-bit samples are unsigned, unlike 16-bit+
     which are signed.
     """
-    chunks = [make_gap()]
+    chunks = []
     for d in digits:
         chunks.append(make_tone(d))
         chunks.append(make_gap())

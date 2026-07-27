@@ -35,10 +35,10 @@ module tb ();
     reg ready, power_valid;
     reg signed [47:0] power;
 
-    power #(.BLOCK_SIZE(8)) my_power (
+    power_calculate #(.BLOCK_SIZE(512)) my_power (
         .clk, .rst_n,
         .sample,
-        .coeff(11'd1019),
+        .coeff(11'd1018),
         .sample_valid,
         .sample_ready,
         .start,
