@@ -27,25 +27,25 @@ module tb ();
   wire VGND = 1'b0;
 `endif
 
-    reg signed [7:0] sample;
-    reg signed [10:0] coeff;
-    reg sample_valid;
-    reg sample_ready;
-    reg start;
-    reg ready, power_valid;
-    reg signed [47:0] power;
+    // reg signed [7:0] sample;
+    // reg signed [10:0] coeff;
+    // reg sample_valid;
+    // reg sample_ready;
+    // reg start;
+    // reg ready, power_valid;
+    // reg signed [47:0] power;
 
-    power_calculate #(.BLOCK_SIZE(512)) my_power (
-        .clk, .rst_n,
-        .sample,
-        .coeff(11'd1018),
-        .sample_valid,
-        .sample_ready,
-        .start,
-        .ready,
-        .power_valid,
-        .power
-    );
+    // power_calculate #(.BLOCK_SIZE(512)) my_power (
+    //     .clk, .rst_n,
+    //     .sample,
+    //     .coeff(11'd1018),
+    //     .sample_valid,
+    //     .sample_ready,
+    //     .start,
+    //     .ready,
+    //     .power_valid,
+    //     .power
+    // );
 
 
   // reg AB_valid, Q_valid, AB_ready;
@@ -63,21 +63,20 @@ module tb ();
   //     .Q_valid(Q_valid)
   // );
 
-  // reg [7:0] sample;
-  // reg sample_valid, sample_ready;
-  // reg [10:0] coeff;
-  // reg signed [23:0] s_prev, s_prev2;
-  // reg valid;
+  reg [7:0] sample;
+  reg sample_valid, sample_ready;
+  reg [10:0] coeff;
+  reg signed [6:0][23:0] s_prev, s_prev2;
+  reg valid;
 
-  // goertzel_iir my_iir (
-  //   .clk(clk), .rst_n(rst_n),
-  //   .sample(sample),
-  //   .sample_valid(sample_valid),
-  //   .sample_ready(sample_ready),
-  //   .coeff(coeff),
-  //   .s_prev(s_prev), .s_prev2(s_prev2),
-  //   .valid(valid)
-  // );
+  goertzel_iir my_iir (
+    .clk(clk), .rst_n(rst_n),
+    .sample(sample),
+    .sample_valid(sample_valid),
+    .sample_ready(sample_ready),
+    .s_prev(s_prev), .s_prev2(s_prev2),
+    .valid(valid)
+  );
 
 //   // Replace tt_um_example with your module name:
 //   tt_um_yjeum11 user_project (

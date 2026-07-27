@@ -8,7 +8,7 @@ module goertzel_iir #(
     output reg sample_ready,
     // Coefficient cos(omega_0) given in Q1.10 format
     // input reg [COEFF_WIDTH-1:0] coeff,
-    output reg signed [6:0][INTERNAL_WIDTH-1:0] s_prev, s_prev2,
+    output reg signed [(7 * INTERNAL_WIDTH)-1:0] s_prev, s_prev2,
     output reg valid
 );
 
@@ -20,8 +20,12 @@ wire signed [INTERNAL_WIDTH-1:0] Q;
 reg AB_valid, AB_ready, Q_valid;
 reg sample_load, internal_load;
 
-reg signed [6:0][COEFF_WIDTH-1:0] coeffs;
+reg signed [(7 * COEFF_WIDTH)-1:0] coeffs;
+reg signed [COEFF_WIDTH-1:0] curr_coeff;
+assign curr_coeff = coeffs[coeff_idx * COEFF_WIDTH +: COEFF_WIDTH];
+
 reg [3:0] coeff_idx;
+reg idx_load, idx_inc;
 
 // NOTE: coeff represents number <= 1. So Q will require as many bits to
 // represent as s_prev. Safely discard higher bits
@@ -29,12 +33,12 @@ reg [3:0] coeff_idx;
 /* verilator lint_off WIDTHTRUNC */
 assign Q = Q_temp >>> (COEFF_WIDTH-2);
 
-assign s = (Q - s_prev2) + {{(INTERNAL_WIDTH-8){sample_reg[7]}},sample_reg}; 
+assign s = (Q - s_prev2[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH]) + {{(INTERNAL_WIDTH-8){sample_reg[7]}},sample_reg}; 
 
 serial_mult #(INTERNAL_WIDTH) mult (
     .clk(clk), .rst_n(rst_n),
-    .A(s_prev),
-    .B({{(INTERNAL_WIDTH-COEFF_WIDTH){1'b0}}, coeff}),
+    .A(s_prev[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH]),
+    .B({{(INTERNAL_WIDTH-COEFF_WIDTH){1'b0}}, coeffs[coeff_idx * COEFF_WIDTH +: COEFF_WIDTH]}),
     .AB_valid(AB_valid),
     .AB_ready(AB_ready),
     .Q(Q_temp),
@@ -44,22 +48,22 @@ serial_mult #(INTERNAL_WIDTH) mult (
 always @(posedge clk) begin
     if (~rst_n) begin
         sample_reg <= '0;
-        coeff_idx <= 3'd7;
+        coeff_idx <= 4'd0;
         s_prev <= '0;
         s_prev2 <= '0;
-        coeffs <= {11'd1019, 11'd1018, 11'd1016, 11'd1015, 11'd1009, 11'd1006, 11'd1001};
+        coeffs <= {11'd1001, 11'd1006, 11'd1009, 11'd1015, 11'd1016, 11'd1018, 11'd1019};
     end else begin
         if (sample_load) begin
             sample_reg <= sample;
         end
         if (internal_load) begin
-            s_prev <= s;
-            s_prev2 <= s_prev;
+            s_prev[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH] <= s;
+            s_prev2[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH] <= s_prev[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH];
         end
         if (idx_load) begin
-            coeff_idx <= 3'd7;
-        end else if (idx_dec) begin
-            coeff_idx <= coeff_idx - 1;
+            coeff_idx <= 4'd0;
+        end else if (idx_inc) begin
+            coeff_idx <= coeff_idx + 1;
         end
 
     end
@@ -70,7 +74,8 @@ reg [3:0] state, next_state;
 localparam STATE_RST       = 0;
 localparam STATE_MULT_INIT = 1;
 localparam STATE_MULT_WAIT = 2;
-localparam STATE_OUTPUT    = 3;
+localparam STATE_LAST_MULT_WAIT = 3;
+localparam STATE_OUTPUT    = 4;
 
 always @* begin
     sample_ready = 1'b0;
@@ -78,17 +83,27 @@ always @* begin
     AB_valid = 1'b0;
     internal_load = 1'b0;
     valid = 1'b0;
+    idx_inc = 1'b0;
+    idx_load = 1'b0;
     case (state)
         STATE_RST: begin
             sample_ready = 1'b1;
             if (sample_valid) begin
                 sample_load = 1'b1;
+                idx_load = 1'b1;
             end
         end
         STATE_MULT_INIT: begin
             AB_valid = 1'b1;
         end
         STATE_MULT_WAIT: begin
+            if (Q_valid) begin
+                internal_load = 1'b1;
+                if (coeff_idx != 4'd6)
+                    idx_inc = 1'b1;
+            end
+        end
+        STATE_LAST_MULT_WAIT: begin
             if (Q_valid) begin
                 internal_load = 1'b1;
             end
@@ -113,6 +128,15 @@ always @* begin
             end
         end
         STATE_MULT_WAIT: begin
+            if (Q_valid) begin
+                if (coeff_idx == 4'd6) begin
+                    next_state = STATE_OUTPUT;
+                end else begin
+                    next_state = STATE_MULT_INIT;
+                end
+            end
+        end
+        STATE_LAST_MULT_WAIT: begin
             if (Q_valid) begin
                 next_state = STATE_OUTPUT;
             end

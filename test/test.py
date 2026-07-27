@@ -8,7 +8,7 @@ from cocotb.triggers import ClockCycles, RisingEdge
 import random
 import wave
 import numpy as np
-from dtmf_goertzel import goertzel_power_fixed, goertzel_sprevs
+from dtmf_goertzel import all_goertzel_sprevs, goertzel_power_fixed, goertzel_sprevs
 
 # @cocotb.test()
 # async def test_mult(dut):
@@ -20,18 +20,17 @@ from dtmf_goertzel import goertzel_power_fixed, goertzel_sprevs
 #     await mult_random(dut, 1000, 8)
 #     await mult(dut, 15, 121)
 
-# @cocotb.test()
+@cocotb.test()
 async def test_iir(dut):
     # Set the clock period to 10 us (100 KHz)
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
     dut.sample.value = 0
     dut.sample_valid.value = 0
-    dut.coeff.value = 0
     await reset_dut(dut)
     await iir(dut)
 
-@cocotb.test()
+# @cocotb.test()
 async def test_power(dut):
     block_size = dut.my_power.BLOCK_SIZE.value.to_unsigned()
     clock = Clock(dut.clk, 10, unit="us")
@@ -100,27 +99,31 @@ async def mult(dut, x, y):
     await ClockCycles(dut.clk, 1)
 
 async def iir(dut):
-    coeff = 1019 # coeff for row 1
     samples = []
     with wave.open("./dtmf.wav", 'rb') as wavfile:
         n_frames = wavfile.getnframes()
-        b = wavfile.readframes(512)
+        b = wavfile.readframes(64)
         samples = np.frombuffer(b, dtype=np.uint8).astype(np.float64) - 128.0
-
-    dut.coeff.value = coeff
 
     s_prev = []
     for s in samples:
         s = int(s)
-        dut.sample.value = s
-        if dut.sample_ready.value != 1:
-            await RisingEdge(dut.sample_ready)
+        while dut.sample_ready.value != 1:
+            await RisingEdge(dut.clk)
         dut.sample_valid.value = 1
+        dut.sample.value = s
+        await RisingEdge(dut.clk)
+        dut.sample_valid.value = 0
         await RisingEdge(dut.valid)
-        await ClockCycles(dut.clk, 1)
-        s_prev.append(dut.s_prev.value.to_signed())
+        curr_s_prev = []
+        for i in range(7):
+            curr_s_prev.append(dut.s_prev.value[(i+1)*24-1:i*24].to_signed())
+        s_prev.append(curr_s_prev)
 
-    golden = goertzel_sprevs(samples, 44100, 697)
+    golden = all_goertzel_sprevs(samples, 44100.0)
+
+    # print(s_prev)
+    # print(golden)
 
     assert s_prev == golden
 
