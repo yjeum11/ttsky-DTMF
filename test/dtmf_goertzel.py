@@ -6,6 +6,15 @@ BLOCK_SIZE = 8
 FRAC_BITS = 10
 POWER_SHIFT = 2 * (BLOCK_SIZE.bit_length() - 1)
 
+ROW_FREQS = [697, 770, 852, 941]
+COL_FREQS = [1209, 1336, 1477, 1633]
+
+def get_coeffs():
+    scale = 1 << FRAC_BITS
+    omega0 = [2.0 * np.pi * target_freq / 44100 for target_freq in COL_FREQS]
+    cr_int = [round(float(np.cos(x)) * scale) for x in omega0]
+    print(cr_int)
+
 def goertzel_sprevs(samples, sample_rate, target_freq, frac_bits=FRAC_BITS):
     scale = 1 << frac_bits
     omega0 = 2.0 * np.pi * target_freq / sample_rate
@@ -79,5 +88,6 @@ def load_wav_mono(path: str):
     return data, sample_rate
 
 if __name__ == "__main__":
-    wave_data, sample_rate = load_wav_mono(sys.argv[1])
-    goertzel_power_fixed(wave_data[0:8], sample_rate, 697)
+    get_coeffs()
+    # wave_data, sample_rate = load_wav_mono(sys.argv[1])
+    # goertzel_power_fixed(wave_data[0:8], sample_rate, 697)

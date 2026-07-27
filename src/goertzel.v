@@ -7,8 +7,8 @@ module goertzel_iir #(
     input reg sample_valid,
     output reg sample_ready,
     // Coefficient cos(omega_0) given in Q1.10 format
-    input reg [COEFF_WIDTH-1:0] coeff,
-    output reg signed [INTERNAL_WIDTH-1:0] s_prev, s_prev2,
+    // input reg [COEFF_WIDTH-1:0] coeff,
+    output reg signed [6:0][INTERNAL_WIDTH-1:0] s_prev, s_prev2,
     output reg valid
 );
 
@@ -19,6 +19,9 @@ reg signed [2*INTERNAL_WIDTH-1:0] Q_temp;
 wire signed [INTERNAL_WIDTH-1:0] Q;
 reg AB_valid, AB_ready, Q_valid;
 reg sample_load, internal_load;
+
+reg signed [6:0][COEFF_WIDTH-1:0] coeffs;
+reg [3:0] coeff_idx;
 
 // NOTE: coeff represents number <= 1. So Q will require as many bits to
 // represent as s_prev. Safely discard higher bits
@@ -41,8 +44,10 @@ serial_mult #(INTERNAL_WIDTH) mult (
 always @(posedge clk) begin
     if (~rst_n) begin
         sample_reg <= '0;
+        coeff_idx <= 3'd7;
         s_prev <= '0;
         s_prev2 <= '0;
+        coeffs <= {11'd1019, 11'd1018, 11'd1016, 11'd1015, 11'd1009, 11'd1006, 11'd1001};
     end else begin
         if (sample_load) begin
             sample_reg <= sample;
@@ -51,6 +56,12 @@ always @(posedge clk) begin
             s_prev <= s;
             s_prev2 <= s_prev;
         end
+        if (idx_load) begin
+            coeff_idx <= 3'd7;
+        end else if (idx_dec) begin
+            coeff_idx <= coeff_idx - 1;
+        end
+
     end
 end
 
