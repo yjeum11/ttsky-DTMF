@@ -1,44 +1,23 @@
 `default_nettype none
 
 module power_calculate #(
+    parameter INTERNAL_WIDTH = 24,
+    parameter COEFF_WIDTH = 11,
     parameter BLOCK_SIZE = 512,
     parameter BLOCK_SIZE_BITS = $clog2(BLOCK_SIZE)
 )(
     input reg clk, rst_n,
-    input reg signed [7:0] sample,
-    input reg signed [10:0] coeff,
-    input reg sample_valid,
-    output reg sample_ready,
+    input reg signed [INTERNAL_WIDTH-1:0] s_prev, s_prev2,
+    input reg signed [COEFF_WIDTH-1:0] coeff,
     input reg start,
     output reg ready, power_valid,
-    output reg signed [47:0] power
+    output reg signed [(2*INTERNAL_WIDTH)-1:0] power
 );
 
-// iterate thru 12 different coefficients
-    // calculate the power for each coefficient.
-
-reg signed [23:0] s_prev, s_prev2;
-reg iir_valid, iir_sample_ready;
-reg stop_samples;
-reg [BLOCK_SIZE_BITS:0] blk_counter;
-reg counter_dec, counter_load, counter_0;
-
-assign sample_ready = ~stop_samples & iir_sample_ready;
-
-goertzel_iir iir (
-    .clk(clk), .rst_n(rst_n),
-    .sample(sample),
-    .sample_valid(sample_valid),
-    .sample_ready(iir_sample_ready),
-    .coeff(coeff),
-    .s_prev(s_prev), .s_prev2(s_prev2),
-    .valid(iir_valid)
-);
-
-reg signed [23:0] A, B;
+reg signed [INTERNAL_WIDTH-1:0] A, B;
 reg [1:0] selA, selB;
 reg AB_valid, AB_ready;
-reg signed [47:0] Q;
+reg signed [(2*INTERNAL_WIDTH)-1:0] Q;
 reg Q_valid;
 
 assign A = (selA == 0) ? s_prev :
@@ -46,8 +25,8 @@ assign A = (selA == 0) ? s_prev :
            '0;
 assign B = (selB == 0) ? s_prev :
            (selB == 1) ? -s_prev2 :
-           (selB == 2) ? {13'b0, coeff} :
-           (selB == 3) ? Q[23+9:0+9] :
+           (selB == 2) ? {{(INTERNAL_WIDTH-COEFF_WIDTH){'0}}, coeff} :
+           (selB == 3) ? Q[INTERNAL_WIDTH-1+COEFF_WIDTH-2:COEFF_WIDTH-2] :
            '0;
 
 serial_mult #(24) mult (
@@ -57,19 +36,6 @@ serial_mult #(24) mult (
     .Q(Q),
     .Q_valid(Q_valid)
 );
-
-assign counter_0 = blk_counter == 0;
-
-always @(posedge clk) begin
-    if (~rst_n)
-        blk_counter <= BLOCK_SIZE;
-    else begin
-        if (counter_load)
-            blk_counter <= BLOCK_SIZE;
-        else if (counter_dec)
-            blk_counter <= blk_counter - 1;
-    end
-end
 
 reg power_acc, power_clr;
 
@@ -85,8 +51,7 @@ always @(posedge clk) begin
 end
 
 reg [3:0] state, next_state;
-localparam STATE_INIT = 0;
-localparam STATE_WAIT_IIR = 1;
+localparam STATE_INIT        = 0;
 localparam STATE_WAIT_MULT0  = 2;
 localparam STATE_SETUP_MULT1 = 3;
 localparam STATE_WAIT_MULT1  = 4;
@@ -101,11 +66,6 @@ always @* begin
     case (state)
         STATE_INIT: begin
             if (start) begin
-                next_state = STATE_WAIT_IIR;
-            end
-        end
-        STATE_WAIT_IIR: begin
-            if (counter_0) begin
                 next_state = STATE_WAIT_MULT0;
             end
         end
@@ -145,17 +105,12 @@ always @* begin
             end
         end
         STATE_OUTPUT: begin
-            if (start) begin
-                next_state = STATE_WAIT_IIR;
-            end
+            next_state = STATE_INIT;
         end
     endcase
 end
 
 always @* begin
-    counter_load = 1'b0;
-    counter_dec = 1'b0;
-    stop_samples = 1'b0;
     selA = 2'b0;
     selB = 2'b0;
     AB_valid = 1'b0;
@@ -167,66 +122,46 @@ always @* begin
         STATE_INIT: begin
             ready = 1'b1;
             if (start) begin
-                counter_load = 1'b1;
-            end
-        end
-        STATE_WAIT_IIR: begin
-            if (iir_valid) begin
-                counter_dec = 1'b1;
-            end
-            if (counter_0) begin
-                stop_samples = 1'b1;
                 selA = 2'b0;
                 selB = 2'b0;
                 AB_valid = 1'b1;
             end
         end
         STATE_WAIT_MULT0: begin
-            stop_samples = 1'b1;
             if (Q_valid) begin
                 power_acc = 1'b1;
             end
         end
         STATE_SETUP_MULT1: begin
-            stop_samples = 1'b1;
             selA = 2'b1;
             selB = 2'b1;
             AB_valid = 1'b1;
         end
         STATE_WAIT_MULT1: begin
-            stop_samples = 1'b1;
             if (Q_valid) begin
                 power_acc = 1'b1;
             end
         end
         STATE_SETUP_MULT2: begin
-            stop_samples = 1'b1;
             selA = 2'b0;
             selB = 2'd2;
             AB_valid = 1'b1;
         end
         STATE_WAIT_MULT2: begin
-            stop_samples = 1'b1;
         end
         STATE_SETUP_MULT3: begin
-            stop_samples = 1'b1;
             selA = 2'b1;
             selB = 2'd3;
             AB_valid = 1'b1;
         end
         STATE_WAIT_MULT3: begin
-            stop_samples = 1'b1;
             if (Q_valid) begin
                 power_acc = 1'b1;
             end
         end
         STATE_OUTPUT: begin
             power_valid = 1'b1;
-            ready = 1'b1;
-            if (start) begin
-                counter_load = 1'b1;
-                power_clr = 1'b1;
-            end
+            power_clr = 1'b1;
         end
     endcase
 end

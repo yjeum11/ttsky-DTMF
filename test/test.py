@@ -10,6 +10,36 @@ import wave
 import numpy as np
 from dtmf_goertzel import all_goertzel_sprevs, goertzel_power_fixed, goertzel_sprevs
 
+@cocotb.test()
+async def test_toplevel(dut):
+    dut._log.info("TopLevel test")
+    # Set the clock period to 10 us (100 KHz)
+    clock = Clock(dut.clk, 10, unit="us")
+    cocotb.start_soon(clock.start())
+    await reset_dut(dut)
+
+    samples = []
+    with wave.open("./dtmf.wav", 'rb') as wavfile:
+        n_frames = wavfile.getnframes()
+        b = wavfile.readframes(8)
+        samples = np.frombuffer(b, dtype=np.uint8).astype(np.float64) - 128.0
+
+    print("samples ", samples)
+
+    for s in samples:
+        s = int(s)
+        while dut.user_project.sample_ready.value != 1:
+            await RisingEdge(dut.clk)
+        dut.user_project.sample_valid.value = 1
+        dut.ui_in.value = s
+        await RisingEdge(dut.clk)
+        dut.user_project.sample_valid.value = 0
+        await RisingEdge(dut.clk)
+
+    while dut.user_project.valid.value != 1:
+        await RisingEdge(dut.clk)
+
+
 # @cocotb.test()
 # async def test_mult(dut):
 #     dut._log.info("Random Mult Test")
@@ -20,15 +50,15 @@ from dtmf_goertzel import all_goertzel_sprevs, goertzel_power_fixed, goertzel_sp
 #     await mult_random(dut, 1000, 8)
 #     await mult(dut, 15, 121)
 
-@cocotb.test()
-async def test_iir(dut):
-    # Set the clock period to 10 us (100 KHz)
-    clock = Clock(dut.clk, 10, unit="us")
-    cocotb.start_soon(clock.start())
-    dut.sample.value = 0
-    dut.sample_valid.value = 0
-    await reset_dut(dut)
-    await iir(dut)
+# @cocotb.test()
+# async def test_iir(dut):
+#     # Set the clock period to 10 us (100 KHz)
+#     clock = Clock(dut.clk, 10, unit="us")
+#     cocotb.start_soon(clock.start())
+#     dut.sample.value = 0
+#     dut.sample_valid.value = 0
+#     await reset_dut(dut)
+#     await iir(dut)
 
 # @cocotb.test()
 async def test_power(dut):

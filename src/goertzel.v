@@ -7,7 +7,8 @@ module goertzel_iir #(
     input reg sample_valid,
     output reg sample_ready,
     // Coefficient cos(omega_0) given in Q1.10 format
-    // input reg [COEFF_WIDTH-1:0] coeff,
+    output reg [3:0] coeff_idx,
+    input reg [COEFF_WIDTH-1:0] coeff,
     output reg signed [(7 * INTERNAL_WIDTH)-1:0] s_prev, s_prev2,
     output reg valid
 );
@@ -20,11 +21,6 @@ wire signed [INTERNAL_WIDTH-1:0] Q;
 reg AB_valid, AB_ready, Q_valid;
 reg sample_load, internal_load;
 
-reg signed [(7 * COEFF_WIDTH)-1:0] coeffs;
-reg signed [COEFF_WIDTH-1:0] curr_coeff;
-assign curr_coeff = coeffs[coeff_idx * COEFF_WIDTH +: COEFF_WIDTH];
-
-reg [3:0] coeff_idx;
 reg idx_load, idx_inc;
 
 // NOTE: coeff represents number <= 1. So Q will require as many bits to
@@ -38,7 +34,7 @@ assign s = (Q - s_prev2[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH]) + {{(INTE
 serial_mult #(INTERNAL_WIDTH) mult (
     .clk(clk), .rst_n(rst_n),
     .A(s_prev[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH]),
-    .B({{(INTERNAL_WIDTH-COEFF_WIDTH){1'b0}}, coeffs[coeff_idx * COEFF_WIDTH +: COEFF_WIDTH]}),
+    .B({{(INTERNAL_WIDTH-COEFF_WIDTH){1'b0}}, coeff}),
     .AB_valid(AB_valid),
     .AB_ready(AB_ready),
     .Q(Q_temp),
@@ -51,7 +47,6 @@ always @(posedge clk) begin
         coeff_idx <= 4'd0;
         s_prev <= '0;
         s_prev2 <= '0;
-        coeffs <= {11'd1001, 11'd1006, 11'd1009, 11'd1015, 11'd1016, 11'd1018, 11'd1019};
     end else begin
         if (sample_load) begin
             sample_reg <= sample;
