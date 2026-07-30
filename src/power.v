@@ -9,7 +9,7 @@ module power_calculate #(
     input reg clk, rst_n,
     input reg signed [INTERNAL_WIDTH-1:0] s_prev, s_prev2,
     input reg signed [COEFF_WIDTH-1:0] coeff,
-    input reg start,
+    input wire start,
     output reg ready, power_valid,
     output reg signed [(2*INTERNAL_WIDTH)-1:0] power
 );
@@ -120,12 +120,10 @@ always @* begin
     ready = 1'b0;
     case (state)
         STATE_INIT: begin
-            ready = 1'b1;
             if (start) begin
-                selA = 2'b0;
-                selB = 2'b0;
                 AB_valid = 1'b1;
             end
+            ready = 1'b1;
         end
         STATE_WAIT_MULT0: begin
             if (Q_valid) begin

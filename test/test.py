@@ -21,7 +21,7 @@ async def test_toplevel(dut):
     samples = []
     with wave.open("./dtmf.wav", 'rb') as wavfile:
         n_frames = wavfile.getnframes()
-        b = wavfile.readframes(8)
+        b = wavfile.readframes(512)
         samples = np.frombuffer(b, dtype=np.uint8).astype(np.float64) - 128.0
 
     print("samples ", samples)
@@ -38,6 +38,8 @@ async def test_toplevel(dut):
 
     while dut.user_project.valid.value != 1:
         await RisingEdge(dut.clk)
+
+    print(f"max_row: {dut.user_project.max_row_idx.value}, max_col: {dut.user_project.max_col_idx.value}")
 
 
 # @cocotb.test()

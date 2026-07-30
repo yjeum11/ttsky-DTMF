@@ -32,7 +32,7 @@ VERILOG_SOURCES += $(PWD)/gate_level_netlist.v
 endif
 
 # Allow sharing configuration between design and testbench via `include`:
-COMPILE_ARGS 		+= -I$(SRC_DIR) -pfileline=1 -Winfloop
+COMPILE_ARGS 		+= -I$(SRC_DIR) -pfileline=1 -Winfloop 
 
 # Include the testbench sources:
 VERILOG_SOURCES += $(PWD)/tb.v
