@@ -21,6 +21,9 @@ module tt_um_yjeum11 #(
     input  wire       rst_n     // reset_n - low to reset
 );
 
+localparam NUM_ROWS = 4;
+localparam NUM_COLS = 3;
+
 reg [3:0] row_idx, col_idx, s_prev_idx, max_row_idx, max_col_idx;
 reg row_idx_clr, col_idx_clr, row_idx_inc, col_idx_inc;
 reg max_row_idx_load, max_col_idx_load, max_row_idx_clr, max_col_idx_clr;
@@ -59,7 +62,7 @@ always @(posedge clk) begin
 end
 
 assign s_prev_idx = (row_phase) ? row_idx : 
-                    (col_phase) ? col_idx + 4 : '0;
+                    (col_phase) ? col_idx + NUM_ROWS : '0;
 
 assign max_row_idx_load = new_max & row_phase;
 assign max_col_idx_load = new_max & col_phase;
@@ -127,6 +130,8 @@ goertzel_iir iir (
 );
 
 assign new_max = power_valid & (power > max_power);
+assign max_power_load = new_max;
+// assign max_power_clr = 
 
 always @(posedge clk) begin
     if (~rst_n)
@@ -176,9 +181,9 @@ always @* begin
             end
         end
         STATE_ROW0: begin
-            if (power_ready & (row_idx != 3)) begin
+            if (power_ready & (row_idx != NUM_ROWS)) begin
                 next_state = STATE_ROW1;
-            end else if (power_ready & (row_idx == 3)) begin
+            end else if (power_ready & (row_idx == NUM_ROWS)) begin
                 next_state = STATE_COL0;
             end
         end
@@ -188,9 +193,9 @@ always @* begin
             end
         end
         STATE_COL0: begin
-            if (power_ready & (col_idx != 2)) begin
+            if (power_ready & (col_idx != NUM_COLS)) begin
                 next_state = STATE_COL1;
-            end else if (power_ready & (col_idx == 2)) begin
+            end else if (power_ready & (col_idx == NUM_COLS)) begin
                 next_state = STATE_OUT;
             end
         end
@@ -206,7 +211,7 @@ always @* begin
 
 end
 
-assign power_start = (state == STATE_ROW0) | (state == STATE_COL0);
+assign power_start = (state == STATE_ROW0 & row_idx != NUM_ROWS) | (state == STATE_COL0);
 
 always @* begin
     stop_samples = 1'b0;
@@ -221,36 +226,29 @@ always @* begin
     col_idx_clr = 1'b0;
     max_row_idx_clr = 1'b0;
     max_col_idx_clr = 1'b0;
+    max_power_clr = 1'b0;
     valid = 1'b0;
     case (state)
         STATE_RESET: begin
-            // if (sample_ready & sample_valid) begin
-            //     blk_counter_dec = 1'b1;
-            // end
             blk_counter_dec = sample_ready & sample_valid;
         end
         STATE_ROW0: begin
             stop_samples = 1'b1;
             row_phase = 1'b1;
-            // power_start = 1'b1;
-            // if (power_ready) begin
-            //     power_start = 1'b1;
-            // end
+            if (power_ready & row_idx == NUM_ROWS) begin
+                max_power_clr = 1'b1;
+            end
         end
         STATE_ROW1: begin
             stop_samples = 1'b1;
             row_phase = 1'b1;
-            // if (power_valid) begin
-            //     row_idx_inc = 1'b1;
-            // end
-            row_idx_inc = power_valid;
+            if (power_valid) begin
+                row_idx_inc = power_valid;
+            end
         end
         STATE_COL0: begin
             stop_samples = 1'b1;
             col_phase = 1'b1;
-            // if (power_ready) begin
-            //     power_start = 1'b1;
-            // end
         end
         STATE_COL1: begin
             stop_samples = 1'b1;
@@ -267,6 +265,7 @@ always @* begin
             max_col_idx_clr = 1'b1;
             valid = 1'b1;
             blk_counter_load = 1'b1;
+            max_power_clr = 1'b1;
         end
     endcase
 

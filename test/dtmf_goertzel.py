@@ -54,13 +54,18 @@ def goertzel_sprevs(samples, sample_rate, target_freq, frac_bits=FRAC_BITS):
 
     return s_prevs
 
+def all_powers(samples):
+    res = []
+    for i, target_freq in enumerate(ROW_FREQS + COL_FREQS):
+        res.append(goertzel_power_fixed(samples, 44100, target_freq))
+    return res
 
 def goertzel_power_fixed(samples: np.ndarray, sample_rate: float,
                           target_freq: float, frac_bits: int = FRAC_BITS) -> int:
     scale = 1 << frac_bits
     omega0 = 2.0 * np.pi * target_freq / sample_rate
     cr_int = round(float(np.cos(omega0)) * scale)
-    print(cr_int)
+    # print(cr_int)
 
     s_prevs = []
 
@@ -74,14 +79,14 @@ def goertzel_power_fixed(samples: np.ndarray, sample_rate: float,
         s_prev = s
         s_prevs.append(s_prev)
 
-    print(f"s_prevs: {s_prevs}")
+    # print(f"s_prevs: {s_prevs}")
 
-    print(f"s_prev: {s_prev}, s_prev2: {s_prev2}")
+    # print(f"s_prev: {s_prev}, s_prev2: {s_prev2}")
 
     cr_s_prev = (s_prev * cr_int) >> (frac_bits - 1)  # = cos(omega0) * s_prev
     power = s_prev2 ** 2 + s_prev ** 2 - cr_s_prev * s_prev2
 
-    print(power)
+    # print(power)
 
     return power
 

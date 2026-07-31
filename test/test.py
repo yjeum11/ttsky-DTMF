@@ -8,7 +8,7 @@ from cocotb.triggers import ClockCycles, RisingEdge
 import random
 import wave
 import numpy as np
-from dtmf_goertzel import all_goertzel_sprevs, goertzel_power_fixed, goertzel_sprevs
+from dtmf_goertzel import all_goertzel_sprevs, goertzel_power_fixed, goertzel_sprevs, all_powers
 
 @cocotb.test()
 async def test_toplevel(dut):
@@ -19,12 +19,10 @@ async def test_toplevel(dut):
     await reset_dut(dut)
 
     samples = []
-    with wave.open("./dtmf.wav", 'rb') as wavfile:
+    with wave.open("./hash.wav", 'rb') as wavfile:
         n_frames = wavfile.getnframes()
         b = wavfile.readframes(512)
         samples = np.frombuffer(b, dtype=np.uint8).astype(np.float64) - 128.0
-
-    print("samples ", samples)
 
     for s in samples:
         s = int(s)
@@ -39,6 +37,9 @@ async def test_toplevel(dut):
     while dut.user_project.valid.value != 1:
         await RisingEdge(dut.clk)
 
+    print(f"samples: {samples}")
+
+    print(f"golden powers: {all_powers(samples)}")
     print(f"max_row: {dut.user_project.max_row_idx.value}, max_col: {dut.user_project.max_col_idx.value}")
 
 
