@@ -2,9 +2,7 @@
 
 module power_calculate #(
     parameter INTERNAL_WIDTH = 24,
-    parameter COEFF_WIDTH = 11,
-    parameter BLOCK_SIZE = 512,
-    parameter BLOCK_SIZE_BITS = $clog2(BLOCK_SIZE)
+    parameter COEFF_WIDTH = 11
 )(
     input reg clk, rst_n,
     input reg signed [INTERNAL_WIDTH-1:0] s_prev, s_prev2,
@@ -29,7 +27,7 @@ assign B = (selB == 0) ? s_prev :
            (selB == 3) ? Q[INTERNAL_WIDTH-1+COEFF_WIDTH-2:COEFF_WIDTH-2] :
            '0;
 
-serial_mult #(24) mult (
+serial_mult #(INTERNAL_WIDTH) mult (
     .clk(clk), .rst_n(rst_n),
     .A(A), .B(B),
     .AB_valid(AB_valid), .AB_ready(AB_ready),

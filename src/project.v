@@ -35,8 +35,7 @@ wire power_ready;
 reg power_valid;
 reg max_power_clr, max_power_load;
 reg new_max;
-reg [2*24-1:0] power, max_power;
-
+reg [2*(INTERNAL_WIDTH)-1:0] power, max_power;
 
 // TODO: assign I/O pins to these
 reg sample_ready, sample_valid;
@@ -44,7 +43,14 @@ reg valid;
 assign uio_out[0] = sample_ready;
 assign sample_valid = uio_in[1];
 assign uo_out = {max_row_idx, max_col_idx};
-assign uio_out[1] = valid;
+assign uio_out[2] = valid;
+assign uio_oe = 8'b0000_0101;
+
+assign uio_out[7:3] = '0;
+assign uio_out[1] = 1'b0;
+
+wire _unused = &{uio_in[7:2], uio_in[0], ena, 1'b0};
+
 
 reg [BLOCK_SIZE_BITS:0] blk_counter;
 reg blk_counter_dec, blk_counter_load, blk_counter_0;
@@ -113,11 +119,13 @@ end
 
 reg iir_sample_ready, iir_valid;
 reg [3:0] iir_coeff_idx;
-reg [10:0] coeff;
+reg [COEFF_WIDTH-1:0] coeff;
 
-reg [7*24-1:0] s_prev, s_prev2;
+reg [7*(INTERNAL_WIDTH)-1:0] s_prev, s_prev2;
 
-goertzel_iir iir (
+goertzel_iir #(
+    .INTERNAL_WIDTH(INTERNAL_WIDTH), .COEFF_WIDTH(COEFF_WIDTH)
+) iir (
     .clk, .rst_n,
     .sample(ui_in),
     .sample_valid(sample_valid),
@@ -144,10 +152,12 @@ always @(posedge clk) begin
     end
 end
 
-power_calculate pow (
+power_calculate #(
+    .INTERNAL_WIDTH(INTERNAL_WIDTH), .COEFF_WIDTH(COEFF_WIDTH)
+) pow (
     .clk, .rst_n,
-    .s_prev(s_prev[s_prev_idx * 24 +: 24]),
-    .s_prev2(s_prev2[s_prev_idx * 24 +: 24]),
+    .s_prev(s_prev[s_prev_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH]),
+    .s_prev2(s_prev2[s_prev_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH]),
     .coeff(coeff),
     .start(power_start),
     .ready(power_ready), .power_valid,
@@ -206,6 +216,8 @@ always @* begin
         end
         STATE_OUT: begin
             next_state = STATE_RESET;
+        end
+        default: begin
         end
     endcase
 
@@ -266,6 +278,8 @@ always @* begin
             valid = 1'b1;
             blk_counter_load = 1'b1;
             max_power_clr = 1'b1;
+        end
+        default: begin
         end
     endcase
 

@@ -13,10 +13,8 @@ module serial_mult #(
 
     reg [2*WIDTH-1:0] Q_orig, Q_subbed;
 
-    reg [WIDTH-1:0] sum_reg, B_reg, sum_reg_shift_1;
+    reg [WIDTH-1:0] sum_reg, B_reg;
     reg [$clog2(WIDTH):0] counter;
-
-    assign sum_reg_shift_1 = sum_reg >> 1;
 
     reg [1:0] state, next_state;
     reg load_inputs, shift_regs;
