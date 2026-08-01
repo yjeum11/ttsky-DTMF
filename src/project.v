@@ -6,7 +6,7 @@
 `default_nettype none
 
 module tt_um_yjeum11 #(
-    parameter INTERNAL_WIDTH = 24,
+    parameter INTERNAL_WIDTH = 22,
     parameter COEFF_WIDTH = 11,
     parameter BLOCK_SIZE = 16,
     parameter BLOCK_SIZE_BITS = $clog2(BLOCK_SIZE)
