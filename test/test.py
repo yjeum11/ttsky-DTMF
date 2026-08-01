@@ -21,7 +21,7 @@ async def test_toplevel(dut):
     samples = []
     with wave.open("./hash.wav", 'rb') as wavfile:
         n_frames = wavfile.getnframes()
-        b = wavfile.readframes(512)
+        b = wavfile.readframes(16)
         samples = np.frombuffer(b, dtype=np.uint8).astype(np.float64) - 128.0
 
     for s in samples:

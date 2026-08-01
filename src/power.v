@@ -9,14 +9,15 @@ module power_calculate #(
     input reg signed [COEFF_WIDTH-1:0] coeff,
     input wire start,
     output reg ready, power_valid,
-    output reg signed [(2*INTERNAL_WIDTH)-1:0] power
+    output reg signed [(2*INTERNAL_WIDTH)-1:0] power,
+    output reg signed [INTERNAL_WIDTH-1:0] A, B,
+    input reg AB_ready,
+    output reg  AB_valid,
+    input reg signed [(2*INTERNAL_WIDTH)-1:0] Q,
+    input reg Q_valid
 );
 
-reg signed [INTERNAL_WIDTH-1:0] A, B;
 reg [1:0] selA, selB;
-reg AB_valid, AB_ready;
-reg signed [(2*INTERNAL_WIDTH)-1:0] Q;
-reg Q_valid;
 
 assign A = (selA == 0) ? s_prev :
            (selA == 1) ? -s_prev2 :
@@ -26,14 +27,6 @@ assign B = (selB == 0) ? s_prev :
            (selB == 2) ? {{(INTERNAL_WIDTH-COEFF_WIDTH){'0}}, coeff} :
            (selB == 3) ? Q[INTERNAL_WIDTH-1+COEFF_WIDTH-2:COEFF_WIDTH-2] :
            '0;
-
-serial_mult #(INTERNAL_WIDTH) mult (
-    .clk(clk), .rst_n(rst_n),
-    .A(A), .B(B),
-    .AB_valid(AB_valid), .AB_ready(AB_ready),
-    .Q(Q),
-    .Q_valid(Q_valid)
-);
 
 reg power_acc, power_clr;
 

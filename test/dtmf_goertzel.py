@@ -81,12 +81,12 @@ def goertzel_power_fixed(samples: np.ndarray, sample_rate: float,
 
     # print(f"s_prevs: {s_prevs}")
 
-    # print(f"s_prev: {s_prev}, s_prev2: {s_prev2}")
+    print(f"s_prev: {s_prev}, s_prev2: {s_prev2}")
 
     cr_s_prev = (s_prev * cr_int) >> (frac_bits - 1)  # = cos(omega0) * s_prev
     power = s_prev2 ** 2 + s_prev ** 2 - cr_s_prev * s_prev2
 
-    # print(power)
+    print("power: ", power)
 
     return power
 

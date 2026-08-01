@@ -9,16 +9,22 @@ module goertzel_iir #(
     // Coefficient cos(omega_0) given in Q1.10 format
     output reg [3:0] coeff_idx,
     input reg [COEFF_WIDTH-1:0] coeff,
-    output reg signed [(7 * INTERNAL_WIDTH)-1:0] s_prev, s_prev2,
-    output reg valid
+    input reg signed [INTERNAL_WIDTH-1:0] s_prev, s_prev2,
+    output reg signed [INTERNAL_WIDTH-1:0] s_prev_next, s_prev2_next,
+    output reg write_reg,
+    output reg valid,
+
+    output reg signed [INTERNAL_WIDTH-1:0] A, B,
+    input reg AB_ready,
+    output reg  AB_valid,
+    input reg signed [(2*INTERNAL_WIDTH)-1:0] Q,
+    input reg Q_valid
 );
 
 
 reg signed [7:0] sample_reg;
 reg signed [INTERNAL_WIDTH-1:0] s;
-reg signed [2*INTERNAL_WIDTH-1:0] Q_temp;
-wire signed [INTERNAL_WIDTH-1:0] Q;
-reg AB_valid, AB_ready, Q_valid;
+wire signed [INTERNAL_WIDTH-1:0] Q_shifted;
 reg sample_load, internal_load;
 
 reg idx_load, idx_inc;
@@ -27,33 +33,24 @@ reg idx_load, idx_inc;
 // represent as s_prev. Safely discard higher bits
 
 /* verilator lint_off WIDTHTRUNC */
-assign Q = Q_temp >>> (COEFF_WIDTH-2);
+assign Q_shifted = Q >>> (COEFF_WIDTH-2);
 
-assign s = (Q - s_prev2[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH]) + {{(INTERNAL_WIDTH-8){sample_reg[7]}},sample_reg}; 
+assign s = (Q_shifted - s_prev2) + {{(INTERNAL_WIDTH-8){sample_reg[7]}},sample_reg}; 
 
-serial_mult #(INTERNAL_WIDTH) mult (
-    .clk(clk), .rst_n(rst_n),
-    .A(s_prev[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH]),
-    .B({{(INTERNAL_WIDTH-COEFF_WIDTH){1'b0}}, coeff}),
-    .AB_valid(AB_valid),
-    .AB_ready(AB_ready),
-    .Q(Q_temp),
-    .Q_valid(Q_valid)
-);
+assign A = s_prev;
+assign B = {{(INTERNAL_WIDTH-COEFF_WIDTH){1'b0}}, coeff};
+
+assign write_reg = internal_load;
+assign s_prev_next = s;
+assign s_prev2_next = s_prev;
 
 always @(posedge clk) begin
     if (~rst_n) begin
         sample_reg <= '0;
         coeff_idx <= 4'd0;
-        s_prev <= '0;
-        s_prev2 <= '0;
     end else begin
         if (sample_load) begin
             sample_reg <= sample;
-        end
-        if (internal_load) begin
-            s_prev[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH] <= s;
-            s_prev2[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH] <= s_prev[coeff_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH];
         end
         if (idx_load) begin
             coeff_idx <= 4'd0;

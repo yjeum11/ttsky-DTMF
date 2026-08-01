@@ -8,7 +8,7 @@
 module tt_um_yjeum11 #(
     parameter INTERNAL_WIDTH = 24,
     parameter COEFF_WIDTH = 11,
-    parameter BLOCK_SIZE = 8,
+    parameter BLOCK_SIZE = 16,
     parameter BLOCK_SIZE_BITS = $clog2(BLOCK_SIZE)
 ) (
     input  wire [7:0] ui_in,    // Dedicated inputs
@@ -27,6 +27,7 @@ localparam NUM_COLS = 3;
 reg [3:0] row_idx, col_idx, s_prev_idx, max_row_idx, max_col_idx;
 reg row_idx_clr, col_idx_clr, row_idx_inc, col_idx_inc;
 reg max_row_idx_load, max_col_idx_load, max_row_idx_clr, max_col_idx_clr;
+reg [3:0] coeff_idx;
 
 reg stop_samples, row_phase, col_phase, power_phase;
 
@@ -51,7 +52,6 @@ assign uio_out[1] = 1'b0;
 
 wire _unused = &{uio_in[7:2], uio_in[0], ena, 1'b0};
 
-
 reg [BLOCK_SIZE_BITS:0] blk_counter;
 reg blk_counter_dec, blk_counter_load, blk_counter_0;
 assign blk_counter_0 = blk_counter == 0;
@@ -73,55 +73,24 @@ assign s_prev_idx = (row_phase) ? row_idx :
 assign max_row_idx_load = new_max & row_phase;
 assign max_col_idx_load = new_max & col_phase;
 
-always @(posedge clk) begin
-    if (~rst_n)
-        row_idx <= '0;
-    else begin
-        if (row_idx_clr)
-            row_idx <= '0;
-        else if (row_idx_inc)
-            row_idx <= row_idx + 1;
-    end
-end
-
-always @(posedge clk) begin
-    if (~rst_n)
-        col_idx <= '0;
-    else begin
-        if (col_idx_clr)
-            col_idx <= '0;
-        else if (col_idx_inc)
-            col_idx <= col_idx + 1;
-    end
-end
-
-always @(posedge clk) begin
-    if (~rst_n)
-        max_row_idx <= '0;
-    else begin
-        if (max_row_idx_clr)
-            max_row_idx <= '0;
-        else if (max_row_idx_load)
-            max_row_idx <= row_idx;
-    end
-end
-
-always @(posedge clk) begin
-    if (~rst_n)
-        max_col_idx <= '0;
-    else begin
-        if (max_col_idx_clr)
-            max_col_idx <= '0;
-        else if (max_col_idx_load)
-            max_col_idx <= col_idx;
-    end
-end
+countup_reg #(4) row_cnt (.clk, .rst_n, .D(), .Q(row_idx), .clr(row_idx_clr), .inc(row_idx_inc), .load());
+countup_reg #(4) col_cnt (.clk, .rst_n, .D(), .Q(col_idx), .clr(col_idx_clr), .inc(col_idx_inc), .load());
+countup_reg #(4) max_row_reg (.clk, .rst_n, .D(row_idx), .Q(max_row_idx), .clr(max_row_idx_clr), .inc(), .load(max_row_idx_load));
+countup_reg #(4) max_col_reg (.clk, .rst_n, .D(col_idx), .Q(max_col_idx), .clr(max_col_idx_clr), .inc(), .load(max_col_idx_load));
 
 reg iir_sample_ready, iir_valid;
 reg [3:0] iir_coeff_idx;
 reg [COEFF_WIDTH-1:0] coeff;
 
-reg [7*(INTERNAL_WIDTH)-1:0] s_prev, s_prev2;
+reg [(INTERNAL_WIDTH)-1:0] s_prev, s_prev2, s_prev_next, s_prev2_next;
+reg s_prev_write;
+
+wire signed [INTERNAL_WIDTH-1:0] A_iir, B_iir;
+wire AB_ready_iir, AB_valid_iir, Q_valid_iir;
+wire signed [2*INTERNAL_WIDTH-1:0] Q_iir;
+assign Q_iir = (~power_phase) ? Q : '0;
+assign Q_valid_iir = (~power_phase) ? Q_valid : '0;
+assign AB_ready_iir = (~power_phase) ? AB_ready : '0;
 
 goertzel_iir #(
     .INTERNAL_WIDTH(INTERNAL_WIDTH), .COEFF_WIDTH(COEFF_WIDTH)
@@ -134,40 +103,87 @@ goertzel_iir #(
     .coeff_idx(iir_coeff_idx),
     .coeff(coeff),
     .s_prev, .s_prev2,
-    .valid(iir_valid)
+    .s_prev_next, .s_prev2_next,
+    .write_reg(s_prev_write),
+    .valid(iir_valid),
+
+    .A(A_iir), .B(B_iir),
+    .AB_ready(AB_ready_iir), .AB_valid(AB_valid_iir),
+    .Q(Q_iir),
+    .Q_valid(Q_valid_iir)
+);
+
+// in the process of factoring out regfile out of goertzel_iir 
+regfile #(INTERNAL_WIDTH) s_prev_reg (
+    .clk   (clk),
+    .rst_n (rst_n),
+    .idx   (coeff_idx),
+    .write (s_prev_write),
+    .D     (s_prev_next),
+    .Q     (s_prev)
+);
+
+// in the process of factoring out regfile out of goertzel_iir 
+regfile #(INTERNAL_WIDTH) s_prev2_reg (
+    .clk   (clk),
+    .rst_n (rst_n),
+    .idx   (coeff_idx),
+    .write (s_prev_write),
+    .D     (s_prev2_next),
+    .Q     (s_prev2)
 );
 
 assign new_max = power_valid & (power > max_power);
 assign max_power_load = new_max;
-// assign max_power_clr = 
 
-always @(posedge clk) begin
-    if (~rst_n)
-        max_power <= '0;
-    else begin
-        if (max_power_clr)
-            max_power <= '0;
-        else if (max_power_load)
-            max_power <= power;
-    end
-end
+countup_reg #(2*INTERNAL_WIDTH) max_power_reg (.clk(clk), .rst_n(rst_n), .D(power), .load(max_power_load), .clr(max_power_clr), .inc(), .Q(max_power));
+
+wire signed [INTERNAL_WIDTH-1:0] A_pow, B_pow;
+wire AB_ready_pow, AB_valid_pow, Q_valid_pow;
+wire signed [2*INTERNAL_WIDTH-1:0] Q_pow;
+assign Q_pow = (power_phase) ? Q : '0;
+assign Q_valid_pow = (power_phase) ? Q_valid : '0;
+assign AB_ready_pow = (power_phase) ? AB_ready : '0;
 
 power_calculate #(
     .INTERNAL_WIDTH(INTERNAL_WIDTH), .COEFF_WIDTH(COEFF_WIDTH)
 ) pow (
     .clk, .rst_n,
-    .s_prev(s_prev[s_prev_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH]),
-    .s_prev2(s_prev2[s_prev_idx * INTERNAL_WIDTH +: INTERNAL_WIDTH]),
+    .s_prev(s_prev),
+    .s_prev2(s_prev2),
     .coeff(coeff),
     .start(power_start),
     .ready(power_ready), .power_valid,
-    .power
+    .power,
+    .A(A_pow), .B(B_pow),
+    .AB_ready(AB_ready_pow), .AB_valid(AB_valid_pow),
+    .Q(Q_pow),
+    .Q_valid(Q_valid_pow)
 );
 
-reg [3:0] coeff_idx;
 assign coeff_idx = (power_phase) ? s_prev_idx : iir_coeff_idx;
 
 coeff_ram coefficients (.idx(coeff_idx), .coeff);
+
+wire [INTERNAL_WIDTH-1:0] A, B;
+wire [2*INTERNAL_WIDTH-1:0] Q;
+wire AB_valid, AB_ready, Q_valid;
+assign A = (power_phase) ? A_pow : A_iir;
+assign B = (power_phase) ? B_pow : B_iir;
+assign AB_valid = (power_phase) ? AB_valid_pow : AB_valid_iir;
+
+serial_mult #(INTERNAL_WIDTH) com_mult (
+    .clk      (clk      ),
+    .rst_n    (rst_n    ),
+    .A        (A        ),
+    .B        (B        ),
+    .AB_valid (AB_valid ),
+    .AB_ready (AB_ready ),
+    .Q        (Q        ),
+    .Q_valid  (Q_valid  )
+);
+
+/******** state machine ********/
 
 reg [2:0] state, next_state;
 
