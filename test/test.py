@@ -21,12 +21,13 @@ async def test_toplevel(dut):
     num_samples = 512
 
     samples = []
-    with wave.open("./hash.wav", 'rb') as wavfile:
+    with wave.open("./one.wav", 'rb') as wavfile:
         n_frames = wavfile.getnframes()
         b = wavfile.readframes(num_samples)
         samples = np.frombuffer(b, dtype=np.uint8).astype(np.float64) - 128.0
 
     power_task = cocotb.start_soon(get_power_values(dut))
+    s_prev_task = cocotb.start_soon(get_sprev_values(dut))
 
     for s in samples:
         s = int(s)
@@ -42,8 +43,16 @@ async def test_toplevel(dut):
         await RisingEdge(dut.clk)
 
     sim_powers = await power_task
-
-    print(f"samples: {samples}")
+    sim_s_prev = await s_prev_task
+    # print(f"samples: {samples}")
+    golden_s_prev = goertzel_sprevs(samples, 44100, 697)
+    # print(f"golden s_prev: {golden_s_prev}")
+    # print(f"sim s_prev: {sim_s_prev}")
+    
+    for i, (x, y) in enumerate(zip(golden_s_prev, sim_s_prev[1:])):
+        if x != y:
+            print(f"wrong at idx {i}, gold={x}, sim={y}")
+            break
 
     print(f"golden powers: {all_powers(samples)}")
     print(f"sim powers: {sim_powers}")
@@ -58,6 +67,18 @@ async def get_power_values(dut):
         await RisingEdge(dut.clk)
     return res
 
+async def get_sprev_values(dut):
+    res = []
+    for _ in range(512):
+        while dut.user_project.s_prev_write.value != 1 or dut.user_project.coeff_idx.value != 0:
+            await RisingEdge(dut.clk)
+        # print(f"s_prev_idx: {dut.user_project.s_prev_idx.value.to_signed()}")
+        # print(f"s_prev_write: {dut.user_project.s_prev_write.value}")
+        # print(f"simtime: {cocotb.utils.get_sim_time()}")
+        res.append(dut.user_project.s_prev.value.to_signed())
+        await RisingEdge(dut.clk)
+        await RisingEdge(dut.clk)
+    return res
 
 # @cocotb.test()
 # async def test_mult(dut):

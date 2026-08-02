@@ -2,12 +2,20 @@ import sys
 import wave
 import numpy as np
 
-BLOCK_SIZE = 16
+BLOCK_SIZE = 512
 FRAC_BITS = 10
 POWER_SHIFT = 2 * (BLOCK_SIZE.bit_length() - 1)
 
 ROW_FREQS = [697, 770, 852, 941]
 COL_FREQS = [1209, 1336, 1477]
+
+def truncate_signed(val, bits):
+    # 1. Clear the higher-order bits (Unsigned mask)
+    val = val & ((1 << bits) - 1)
+    # 2. Apply two's complement sign extension if the sign bit is set
+    if val & (1 << (bits - 1)):
+        val -= (1 << bits)
+    return val
 
 def get_coeffs():
     scale = 1 << FRAC_BITS
@@ -65,7 +73,6 @@ def goertzel_power_fixed(samples: np.ndarray, sample_rate: float,
     scale = 1 << frac_bits
     omega0 = 2.0 * np.pi * target_freq / sample_rate
     cr_int = round(float(np.cos(omega0)) * scale)
-    # print(cr_int)
 
     s_prevs = []
 
@@ -79,9 +86,12 @@ def goertzel_power_fixed(samples: np.ndarray, sample_rate: float,
         s_prev = s
         s_prevs.append(s_prev)
 
+    s_prev = truncate_signed(s_prev, 20)
+    s_prev2 = truncate_signed(s_prev2, 20)
+    # s_prev  &= 0xfffff # 20 bits
+    # s_prev2 &= 0xfffff
     s_prev >>= (POWER_SHIFT // 2)
     s_prev2 >>= (POWER_SHIFT // 2)
-    # print(s_prev, s_prev2)
 
     cr_s_prev = (s_prev * cr_int) >> (frac_bits - 1)  # = cos(omega0) * s_prev
     power = s_prev2 ** 2 + s_prev ** 2 - cr_s_prev * s_prev2

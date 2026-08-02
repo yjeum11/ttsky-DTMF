@@ -18,35 +18,13 @@ module power_calculate #(
     input Q_valid
 );
 
-// in order to get rid of max_power in project.v
-// use `power` as the max_power register.
-// so we just need signals telling us when to reset the max power register
-// this is impossible? we need the power register to build up the product 
-// and we don't know how big the next value will be until we have built up the entire thing.
-// 
-
-// pre-shift the s_prevs prior to multiplication. this will result in the power result already being
-// shifted to the right by POWER_SHIFT*2
-// POWER_SHIFT is bitlength(N^2). so instead of 48 bits it will be like 30.
-// final calculation is s_prev^2 + s_prev2^2 - coeff * s_prev * s_prev2
-// for the iir calculation we actually dont need the upper 24 bits of Q.
-// the only reason we keep the upper bits of Q is because of power.
-// 
-// so the multiplier can be log2(16) = 4 bits smaller in the input for 20bit A and B
-// and 8 bits smaller in the output for 40bit Q.
-// for IIR, we have 24bit inputs and 24bit output. we are throwing away the top 24 bits of the multiplier result.
-
-// we can just do the shift and throw away the upper 8 bits of power. this will save space in max_power result
-
 reg [1:0] selA, selB;
 
-
-
-assign A = (selA == 0) ? (s_prev >>> POWER_SHIFT) :
-           (selA == 1) ? -(s_prev2 >>> POWER_SHIFT) :
+assign A = (selA == 0) ? $signed((s_prev >>> POWER_SHIFT)) :
+           (selA == 1) ? $signed(-(s_prev2 >>> POWER_SHIFT)) :
            '0;
-assign B = (selB == 0) ? (s_prev >>> POWER_SHIFT) :
-           (selB == 1) ? -(s_prev2 >>> POWER_SHIFT) :
+assign B = (selB == 0) ? $signed((s_prev) >>> POWER_SHIFT) :
+           (selB == 1) ? $signed(-(s_prev2 >>> POWER_SHIFT)) :
            (selB == 2) ? {{(INTERNAL_WIDTH-COEFF_WIDTH){'0}}, coeff} :
            (selB == 3) ? Q[COEFF_WIDTH-2 +: INTERNAL_WIDTH] :
            '0;

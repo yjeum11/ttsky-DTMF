@@ -183,6 +183,9 @@ assign A = (power_phase) ? A_pow : A_iir;
 assign B = (power_phase) ? B_pow : B_iir;
 assign AB_valid = (power_phase) ? AB_valid_pow : AB_valid_iir;
 
+// A INTERNAL_WIDTH-POWER_SHIFT (10)
+
+
 serial_mult #(INTERNAL_WIDTH) com_mult (
     .clk      (clk      ),
     .rst_n    (rst_n    ),
