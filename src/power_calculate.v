@@ -28,8 +28,8 @@ assign A = (selA == 0) ? $signed((s_prev >>> POWER_SHIFT)) :
            (selA == 1) ? $signed(-(s_prev2 >>> POWER_SHIFT)) :
            '0;
 
-wire signed [B_WIDTH-1:0] B_s_prev_shifted = s_prev >>> POWER_SHIFT;
-wire signed [B_WIDTH-1:0] B_neg_s_prev2_shifted = -(s_prev2 >>> POWER_SHIFT);
+wire signed [B_WIDTH-1:0] B_s_prev_shifted = $signed(s_prev >>> POWER_SHIFT);
+wire signed [B_WIDTH-1:0] B_neg_s_prev2_shifted = $signed(-(s_prev2 >>> POWER_SHIFT));
 
 assign B = (selB == 0) ? B_s_prev_shifted :
            (selB == 1) ? B_neg_s_prev2_shifted :
