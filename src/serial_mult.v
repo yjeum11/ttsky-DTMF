@@ -1,20 +1,25 @@
 `default_nettype none
 
 module serial_mult #(
-    parameter WIDTH = 4'd8
+    parameter WIDTH_A = 4'd8,
+    parameter WIDTH_B = 4'd8
 ) (
     input clk, rst_n,
-    input reg signed [WIDTH-1:0] A, B,
+    input reg signed [WIDTH_A-1:0] A,
+    input reg signed [WIDTH_B-1:0] B,
     input reg AB_valid,
     output reg AB_ready,
-    output reg signed [2*WIDTH-1:0] Q,
+    output reg signed [WIDTH_A+WIDTH_B-1:0] Q,
     output reg Q_valid
 );
 
-    reg [2*WIDTH-1:0] Q_orig, Q_subbed;
+    // A is multiplier, B is multiplicand
+    // "add multiplicand `multiplier` amount of times"
 
-    reg [WIDTH-1:0] sum_reg, B_reg;
-    reg [$clog2(WIDTH):0] counter;
+    reg [WIDTH_A+WIDTH_B-1:0] Q_orig, Q_subbed;
+
+    reg [WIDTH_B-1:0] sum_reg, B_reg;
+    reg [$clog2(WIDTH_A):0] counter;
 
     reg [1:0] state, next_state;
     reg load_inputs, shift_regs;
@@ -24,11 +29,11 @@ module serial_mult #(
 
     assign Q = multiplier_neg ? Q_subbed : Q_orig;
 
-    assign Q_subbed = Q_orig - {B_reg, {WIDTH{1'b0}}};
+    assign Q_subbed = Q_orig - {B_reg, {WIDTH_A{1'b0}}};
 
     always @(posedge clk) begin
         if (~rst_n) begin
-            counter <= WIDTH;
+            counter <= WIDTH_A;
             Q_orig <= '0;
             B_reg <= '0;
             multiplier_neg <= '0;
@@ -37,26 +42,27 @@ module serial_mult #(
             if (counter_dec) begin
                 counter <= counter - 1;
             end else if (counter_load) begin
-                counter <= WIDTH;
+                counter <= WIDTH_A;
             end
 
             if (load_inputs) begin
-                Q_orig <= {{WIDTH{1'b0}}, A};
+                Q_orig <= {{WIDTH_B{1'b0}}, A};
                 B_reg <= B;
-                multiplier_neg <= A[WIDTH-1];
-                multiplicand_neg <= B[WIDTH-1];
+                multiplier_neg <= A[WIDTH_A-1];
+                multiplicand_neg <= B[WIDTH_B-1];
             end
             if (shift_regs) begin
-                Q_orig <= {carry | (sum_reg[WIDTH-1] & multiplicand_neg), sum_reg, Q_orig[WIDTH-1:1]};
+                Q_orig <= {carry | (sum_reg[WIDTH_B-1] & multiplicand_neg), sum_reg, Q_orig[WIDTH_A-1:1]};
             end
         end
     end
 
     always @* begin
         if (Q_orig[0]) begin
-            {carry, sum_reg} = Q_orig[2*WIDTH-1:WIDTH] + B_reg;
+            // {carry, sum_reg} = Q_orig[2*WIDTH-1:WIDTH] + B_reg;
+            {carry, sum_reg} = Q_orig[WIDTH_A +: WIDTH_B] + B_reg;
         end else begin
-            sum_reg = Q_orig[2*WIDTH-1:WIDTH];
+            sum_reg = Q_orig[WIDTH_A +: WIDTH_B];
             carry = 0;
         end
     end
