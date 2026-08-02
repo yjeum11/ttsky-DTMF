@@ -81,14 +81,14 @@ async def get_sprev_values(dut):
     return res
 
 # @cocotb.test()
-# async def test_mult(dut):
-#     dut._log.info("Random Mult Test")
-#     # Set the clock period to 10 us (100 KHz)
-#     clock = Clock(dut.clk, 10, unit="us")
-#     cocotb.start_soon(clock.start())
-#     await reset_dut(dut)
-#     await mult_random(dut, 1000, 8)
-#     await mult(dut, 15, 121)
+async def test_mult(dut):
+    dut._log.info("Random Mult Test")
+    # Set the clock period to 10 us (100 KHz)
+    clock = Clock(dut.clk, 10, unit="us")
+    cocotb.start_soon(clock.start())
+    await reset_dut(dut)
+    await mult_random(dut, 1000, 16, 8)
+    # await mult(dut, 15, 121)
 
 # @cocotb.test()
 # async def test_iir(dut):
@@ -148,10 +148,10 @@ async def reset_dut(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
-async def mult_random(dut, count, bit_width=12):
+async def mult_random(dut, count, bit_width_a=12, bit_width_b=12):
     for _ in range(count):
-        x = random.randint(-(1 << (bit_width-1)), (1 << (bit_width-1)) -1)
-        y = random.randint(-(1 << (bit_width-1)), (1 << (bit_width-1)) -1)
+        x = random.randint(-(1 << (bit_width_a-1)), (1 << (bit_width_a-1)) -1)
+        y = random.randint(-(1 << (bit_width_b-1)), (1 << (bit_width_b-1)) -1)
         await mult(dut, x, y)
 
 async def mult(dut, x, y):

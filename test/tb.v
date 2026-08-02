@@ -22,6 +22,7 @@ module tb ();
   wire [7:0] uo_out;
   wire [7:0] uio_out;
   wire [7:0] uio_oe;
+
 `ifdef GL_TEST
   wire VPWR = 1'b1;
   wire VGND = 1'b0;
@@ -49,10 +50,11 @@ module tb ();
 
 
   // reg AB_valid, Q_valid, AB_ready;
-  // reg [15:0] Q;
-  // reg [7:0] A, B;
+  // reg [23:0] Q;
+  // reg [15:0] A;
+  // reg [7:0] B;
 
-  // serial_mult #(8) my_mult (
+  // serial_mult #(16, 8) my_mult (
   //     .clk (clk),
   //     .rst_n (rst_n),
   //     .A(A),

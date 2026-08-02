@@ -27,9 +27,9 @@ localparam NUM_COLS = 3;
 localparam POWER_SHIFT = BLOCK_SIZE_BITS - 1;
 localparam POWER_WIDTH = 2*INTERNAL_WIDTH - 2*POWER_SHIFT;
 
-initial begin
-    $display("POWER_WIDTH = %d\n", POWER_WIDTH);
-end
+localparam WIDTH_A = INTERNAL_WIDTH;
+localparam POWER_OPERAND_WIDTH = INTERNAL_WIDTH - POWER_SHIFT;
+localparam WIDTH_B = (POWER_OPERAND_WIDTH > COEFF_WIDTH) ? POWER_OPERAND_WIDTH : COEFF_WIDTH;
 
 reg [3:0] row_idx, col_idx, max_row_idx, max_col_idx;
 wire [3:0] s_prev_idx;
@@ -83,10 +83,10 @@ assign s_prev_idx = (row_phase) ? row_idx :
 assign max_row_idx_load = new_max & row_phase;
 assign max_col_idx_load = new_max & col_phase;
 
-countup_reg #(4) row_cnt (.clk, .rst_n, .D(), .Q(row_idx), .clr(row_idx_clr), .inc(row_idx_inc), .load());
-countup_reg #(4) col_cnt (.clk, .rst_n, .D(), .Q(col_idx), .clr(col_idx_clr), .inc(col_idx_inc), .load());
-countup_reg #(4) max_row_reg (.clk, .rst_n, .D(row_idx), .Q(max_row_idx), .clr(max_row_idx_clr), .inc(), .load(max_row_idx_load));
-countup_reg #(4) max_col_reg (.clk, .rst_n, .D(col_idx), .Q(max_col_idx), .clr(max_col_idx_clr), .inc(), .load(max_col_idx_load));
+countup_reg #(4) row_cnt (.clk, .rst_n, .D('0), .Q(row_idx), .clr(row_idx_clr), .inc(row_idx_inc), .load(1'b0));
+countup_reg #(4) col_cnt (.clk, .rst_n, .D('0), .Q(col_idx), .clr(col_idx_clr), .inc(col_idx_inc), .load(1'b0));
+countup_reg #(4) max_row_reg (.clk, .rst_n, .D(row_idx), .Q(max_row_idx), .clr(max_row_idx_clr), .inc(1'b0), .load(max_row_idx_load));
+countup_reg #(4) max_col_reg (.clk, .rst_n, .D(col_idx), .Q(max_col_idx), .clr(max_col_idx_clr), .inc(1'b0), .load(max_col_idx_load));
 
 reg iir_sample_ready, iir_valid;
 reg [3:0] iir_coeff_idx;
@@ -95,7 +95,8 @@ reg [COEFF_WIDTH-1:0] coeff;
 reg [(INTERNAL_WIDTH)-1:0] s_prev, s_prev2, s_prev_next, s_prev2_next;
 reg s_prev_write;
 
-wire signed [INTERNAL_WIDTH-1:0] A_iir, B_iir;
+wire signed [INTERNAL_WIDTH-1:0] A_iir;
+wire signed [WIDTH_B-1:0] B_iir;
 wire AB_ready_iir, AB_valid_iir, Q_valid_iir;
 wire signed [2*INTERNAL_WIDTH-1:0] Q_iir;
 assign Q_iir = (~power_phase) ? Q : '0;
@@ -148,7 +149,8 @@ assign max_power_load = new_max;
 
 countup_reg #(POWER_WIDTH) max_power_reg (.clk(clk), .rst_n(rst_n), .D(power), .load(max_power_load), .clr(max_power_clr), .inc(), .Q(max_power));
 
-wire signed [INTERNAL_WIDTH-1:0] A_pow, B_pow;
+wire signed [INTERNAL_WIDTH-1:0] A_pow;
+wire signed [WIDTH_B-1:0] B_pow;
 wire AB_ready_pow, AB_valid_pow, Q_valid_pow;
 wire signed [2*INTERNAL_WIDTH-1:0] Q_pow;
 assign Q_pow = (power_phase) ? Q : '0;
@@ -176,17 +178,20 @@ assign coeff_idx = (power_phase) ? s_prev_idx : iir_coeff_idx;
 
 coeff_ram coefficients (.idx(coeff_idx), .coeff);
 
-wire [INTERNAL_WIDTH-1:0] A, B;
-wire [2*INTERNAL_WIDTH-1:0] Q;
+wire signed [INTERNAL_WIDTH-1:0] A;
+wire signed [WIDTH_B-1:0] B;
+wire [INTERNAL_WIDTH+WIDTH_B-1:0] Q;
 wire AB_valid, AB_ready, Q_valid;
 assign A = (power_phase) ? A_pow : A_iir;
 assign B = (power_phase) ? B_pow : B_iir;
 assign AB_valid = (power_phase) ? AB_valid_pow : AB_valid_iir;
 
-// A INTERNAL_WIDTH-POWER_SHIFT (10)
+// iir phase- internal width * coeff width (11)
+// power phase- internal width-power shift * internal width-power shift (20 - 9 = 11)
+// 
 
 
-serial_mult #(INTERNAL_WIDTH) com_mult (
+serial_mult #(INTERNAL_WIDTH, WIDTH_B) com_mult (
     .clk      (clk      ),
     .rst_n    (rst_n    ),
     .A        (A        ),

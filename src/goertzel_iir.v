@@ -1,6 +1,7 @@
 module goertzel_iir #(
-    parameter INTERNAL_WIDTH = 24,
-    parameter COEFF_WIDTH = 11
+    parameter INTERNAL_WIDTH = 20,
+    parameter COEFF_WIDTH = 11,
+    parameter B_WIDTH = 11
 ) (
     input reg clk, rst_n,
     input reg signed [7:0] sample,
@@ -14,10 +15,11 @@ module goertzel_iir #(
     output reg write_reg,
     output reg valid,
 
-    output reg signed [INTERNAL_WIDTH-1:0] A, B,
+    output reg signed [INTERNAL_WIDTH-1:0] A,
+    output reg signed [B_WIDTH-1:0] B,
     input reg AB_ready,
     output reg  AB_valid,
-    input reg signed [(2*INTERNAL_WIDTH)-1:0] Q,
+    input reg signed [INTERNAL_WIDTH+B_WIDTH-1:0] Q,
     input reg Q_valid
 );
 
@@ -38,7 +40,7 @@ assign Q_shifted = Q >>> (COEFF_WIDTH-2);
 assign s = (Q_shifted - s_prev2) + {{(INTERNAL_WIDTH-8){sample_reg[7]}},sample_reg}; 
 
 assign A = s_prev;
-assign B = {{(INTERNAL_WIDTH-COEFF_WIDTH){1'b0}}, coeff};
+assign B = coeff;
 
 assign write_reg = internal_load;
 assign s_prev_next = s;

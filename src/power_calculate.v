@@ -1,9 +1,10 @@
 `default_nettype none
 
 module power_calculate #(
-    parameter INTERNAL_WIDTH = 24,
+    parameter INTERNAL_WIDTH = 20,
     parameter COEFF_WIDTH = 11,
-    parameter POWER_SHIFT = 4
+    parameter B_WIDTH = 11,
+    parameter POWER_SHIFT = 9
 )(
     input clk, rst_n,
     input signed [INTERNAL_WIDTH-1:0] s_prev, s_prev2,
@@ -11,22 +12,29 @@ module power_calculate #(
     input wire start,
     output reg ready, power_valid,
     output reg signed [(2*INTERNAL_WIDTH - 2*POWER_SHIFT)-1:0] power,
-    output signed [INTERNAL_WIDTH-1:0] A, B,
+    output signed [INTERNAL_WIDTH-1:0] A,
+    output signed [B_WIDTH-1:0] B,
     input AB_ready,
     output reg  AB_valid,
-    input signed [(2*INTERNAL_WIDTH)-1:0] Q,
+    input signed [(INTERNAL_WIDTH + B_WIDTH)-1:0] Q,
     input Q_valid
 );
 
 reg [1:0] selA, selB;
 
+wire [INTERNAL_WIDTH-1:0] s_prev_shifted;
+
 assign A = (selA == 0) ? $signed((s_prev >>> POWER_SHIFT)) :
            (selA == 1) ? $signed(-(s_prev2 >>> POWER_SHIFT)) :
            '0;
-assign B = (selB == 0) ? $signed((s_prev) >>> POWER_SHIFT) :
-           (selB == 1) ? $signed(-(s_prev2 >>> POWER_SHIFT)) :
-           (selB == 2) ? {{(INTERNAL_WIDTH-COEFF_WIDTH){'0}}, coeff} :
-           (selB == 3) ? Q[COEFF_WIDTH-2 +: INTERNAL_WIDTH] :
+
+wire signed [B_WIDTH-1:0] B_s_prev_shifted = s_prev >>> POWER_SHIFT;
+wire signed [B_WIDTH-1:0] B_neg_s_prev2_shifted = -(s_prev2 >>> POWER_SHIFT);
+
+assign B = (selB == 0) ? B_s_prev_shifted :
+           (selB == 1) ? B_neg_s_prev2_shifted :
+           (selB == 2) ? coeff :
+           (selB == 3) ? Q[COEFF_WIDTH-2 +: INTERNAL_WIDTH-POWER_SHIFT] :
            '0;
 
 reg power_acc, power_clr;
