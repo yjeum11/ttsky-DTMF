@@ -24,8 +24,8 @@ module regfile #(parameter WIDTH = 24) (
     input clk, rst_n,
     input [3:0] idx,
     input write,
-    input [23:0] D,
-    output [23:0] Q
+    input [WIDTH-1:0] D,
+    output [WIDTH-1:0] Q
 );
 
 reg [7*WIDTH-1:0] internal;

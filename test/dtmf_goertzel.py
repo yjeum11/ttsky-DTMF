@@ -2,7 +2,7 @@ import sys
 import wave
 import numpy as np
 
-BLOCK_SIZE = 8
+BLOCK_SIZE = 16
 FRAC_BITS = 10
 POWER_SHIFT = 2 * (BLOCK_SIZE.bit_length() - 1)
 
@@ -79,14 +79,14 @@ def goertzel_power_fixed(samples: np.ndarray, sample_rate: float,
         s_prev = s
         s_prevs.append(s_prev)
 
-    # print(f"s_prevs: {s_prevs}")
-
-    print(f"s_prev: {s_prev}, s_prev2: {s_prev2}")
+    s_prev >>= (POWER_SHIFT // 2)
+    s_prev2 >>= (POWER_SHIFT // 2)
+    # print(s_prev, s_prev2)
 
     cr_s_prev = (s_prev * cr_int) >> (frac_bits - 1)  # = cos(omega0) * s_prev
     power = s_prev2 ** 2 + s_prev ** 2 - cr_s_prev * s_prev2
 
-    print("power: ", power)
+    # print("power: ", power)
 
     return power
 

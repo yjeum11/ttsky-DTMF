@@ -18,11 +18,15 @@ async def test_toplevel(dut):
     cocotb.start_soon(clock.start())
     await reset_dut(dut)
 
+    num_samples = 512
+
     samples = []
     with wave.open("./hash.wav", 'rb') as wavfile:
         n_frames = wavfile.getnframes()
-        b = wavfile.readframes(16)
+        b = wavfile.readframes(num_samples)
         samples = np.frombuffer(b, dtype=np.uint8).astype(np.float64) - 128.0
+
+    power_task = cocotb.start_soon(get_power_values(dut))
 
     for s in samples:
         s = int(s)
@@ -37,10 +41,22 @@ async def test_toplevel(dut):
     while dut.user_project.valid.value != 1:
         await RisingEdge(dut.clk)
 
+    sim_powers = await power_task
+
     print(f"samples: {samples}")
 
     print(f"golden powers: {all_powers(samples)}")
+    print(f"sim powers: {sim_powers}")
     print(f"max_row: {dut.user_project.max_row_idx.value}, max_col: {dut.user_project.max_col_idx.value}")
+
+async def get_power_values(dut):
+    res = []
+    for _ in range(7):
+        while dut.user_project.power_valid.value != 1:
+            await RisingEdge(dut.clk)
+        res.append(dut.user_project.power.value.to_signed())
+        await RisingEdge(dut.clk)
+    return res
 
 
 # @cocotb.test()

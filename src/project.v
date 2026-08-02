@@ -6,10 +6,10 @@
 `default_nettype none
 
 module tt_um_yjeum11 #(
-    parameter INTERNAL_WIDTH = 22,
+    parameter INTERNAL_WIDTH = 20,
     parameter COEFF_WIDTH = 11,
-    parameter BLOCK_SIZE = 16,
-    parameter BLOCK_SIZE_BITS = $clog2(BLOCK_SIZE)
+    parameter BLOCK_SIZE = 512,
+    parameter BLOCK_SIZE_BITS = 10
 ) (
     input  wire [7:0] ui_in,    // Dedicated inputs
     output wire [7:0] uo_out,   // Dedicated outputs
@@ -24,7 +24,15 @@ module tt_um_yjeum11 #(
 localparam NUM_ROWS = 4;
 localparam NUM_COLS = 3;
 
-reg [3:0] row_idx, col_idx, s_prev_idx, max_row_idx, max_col_idx;
+localparam POWER_SHIFT = BLOCK_SIZE_BITS - 1;
+localparam POWER_WIDTH = 2*INTERNAL_WIDTH - 2*POWER_SHIFT;
+
+initial begin
+    $display("POWER_WIDTH = %d\n", POWER_WIDTH);
+end
+
+reg [3:0] row_idx, col_idx, max_row_idx, max_col_idx;
+wire [3:0] s_prev_idx;
 reg row_idx_clr, col_idx_clr, row_idx_inc, col_idx_inc;
 reg max_row_idx_load, max_col_idx_load, max_row_idx_clr, max_col_idx_clr;
 reg [3:0] coeff_idx;
@@ -36,10 +44,11 @@ wire power_ready;
 reg power_valid;
 reg max_power_clr, max_power_load;
 reg new_max;
-reg [2*(INTERNAL_WIDTH)-1:0] power, max_power;
+reg [POWER_WIDTH-1:0] power, max_power;
 
 // TODO: assign I/O pins to these
-reg sample_ready, sample_valid;
+reg sample_ready;
+wire sample_valid;
 reg valid;
 assign uio_out[0] = sample_ready;
 assign sample_valid = uio_in[1];
@@ -52,8 +61,9 @@ assign uio_out[1] = 1'b0;
 
 wire _unused = &{uio_in[7:2], uio_in[0], ena, 1'b0};
 
-reg [BLOCK_SIZE_BITS:0] blk_counter;
-reg blk_counter_dec, blk_counter_load, blk_counter_0;
+reg [BLOCK_SIZE_BITS-1:0] blk_counter;
+reg blk_counter_dec, blk_counter_load;
+wire blk_counter_0;
 assign blk_counter_0 = blk_counter == 0;
 
 always @(posedge clk) begin
@@ -136,7 +146,7 @@ regfile #(INTERNAL_WIDTH) s_prev2_reg (
 assign new_max = power_valid & (power > max_power);
 assign max_power_load = new_max;
 
-countup_reg #(2*INTERNAL_WIDTH) max_power_reg (.clk(clk), .rst_n(rst_n), .D(power), .load(max_power_load), .clr(max_power_clr), .inc(), .Q(max_power));
+countup_reg #(POWER_WIDTH) max_power_reg (.clk(clk), .rst_n(rst_n), .D(power), .load(max_power_load), .clr(max_power_clr), .inc(), .Q(max_power));
 
 wire signed [INTERNAL_WIDTH-1:0] A_pow, B_pow;
 wire AB_ready_pow, AB_valid_pow, Q_valid_pow;
@@ -146,7 +156,8 @@ assign Q_valid_pow = (power_phase) ? Q_valid : '0;
 assign AB_ready_pow = (power_phase) ? AB_ready : '0;
 
 power_calculate #(
-    .INTERNAL_WIDTH(INTERNAL_WIDTH), .COEFF_WIDTH(COEFF_WIDTH)
+    .INTERNAL_WIDTH(INTERNAL_WIDTH), .COEFF_WIDTH(COEFF_WIDTH),
+    .POWER_SHIFT(POWER_SHIFT)
 ) pow (
     .clk, .rst_n,
     .s_prev(s_prev),
