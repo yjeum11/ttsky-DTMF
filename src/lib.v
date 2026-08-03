@@ -23,7 +23,7 @@ endmodule: countup_reg
 module regfile #(parameter WIDTH = 24) (
     input clk, rst_n,
     input [3:0] idx,
-    input write,
+    input write, clr,
     input [WIDTH-1:0] D,
     output [WIDTH-1:0] Q
 );
@@ -36,7 +36,9 @@ always @(posedge clk) begin
     if (~rst_n) begin
         internal <= '0;
     end else begin
-        if (write) begin
+        if (clr) begin
+            internal <= '0;
+        end else if (write) begin
             internal[WIDTH*idx +: WIDTH] <= D;
         end
     end

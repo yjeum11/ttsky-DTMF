@@ -3,7 +3,6 @@
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.handle import Immediate
 from cocotb.triggers import ClockCycles, RisingEdge
 import random
 import wave
@@ -18,16 +17,19 @@ async def test_toplevel(dut):
     cocotb.start_soon(clock.start())
     await reset_dut(dut)
 
-    num_samples = 512
-
     samples = []
     with wave.open("./one.wav", 'rb') as wavfile:
         n_frames = wavfile.getnframes()
-        b = wavfile.readframes(num_samples)
+        b = wavfile.readframes(n_frames)
         samples = np.frombuffer(b, dtype=np.uint8).astype(np.float64) - 128.0
 
+    await block(dut, samples[0:512], 512)
+    await block(dut, samples[512:1024], 512)
+
+async def block(dut, samples, block_size):
+    assert len(samples) == block_size
     power_task = cocotb.start_soon(get_power_values(dut))
-    s_prev_task = cocotb.start_soon(get_sprev_values(dut))
+    s_prev_task = cocotb.start_soon(get_sprev_values(dut, block_size))
 
     for s in samples:
         s = int(s)
@@ -44,7 +46,6 @@ async def test_toplevel(dut):
 
     sim_powers = await power_task
     sim_s_prev = await s_prev_task
-    # print(f"samples: {samples}")
     golden_s_prev = goertzel_sprevs(samples, 44100, 697)
     # print(f"golden s_prev: {golden_s_prev}")
     # print(f"sim s_prev: {sim_s_prev}")
@@ -54,9 +55,13 @@ async def test_toplevel(dut):
             print(f"wrong at idx {i}, gold={x}, sim={y}")
             break
 
-    print(f"golden powers: {all_powers(samples)}")
+    golden_powers = all_powers(samples)
+
+    print(f"golden powers: {golden_powers}")
     print(f"sim powers: {sim_powers}")
     print(f"max_row: {dut.user_project.max_row_idx.value}, max_col: {dut.user_project.max_col_idx.value}")
+
+    assert golden_powers == sim_powers
 
 async def get_power_values(dut):
     res = []
@@ -67,9 +72,9 @@ async def get_power_values(dut):
         await RisingEdge(dut.clk)
     return res
 
-async def get_sprev_values(dut):
+async def get_sprev_values(dut, block_size):
     res = []
-    for _ in range(512):
+    for _ in range(block_size):
         while dut.user_project.s_prev_write.value != 1 or dut.user_project.coeff_idx.value != 0:
             await RisingEdge(dut.clk)
         # print(f"s_prev_idx: {dut.user_project.s_prev_idx.value.to_signed()}")

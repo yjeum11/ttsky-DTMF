@@ -93,12 +93,12 @@ reg [3:0] iir_coeff_idx;
 reg [COEFF_WIDTH-1:0] coeff;
 
 reg [(INTERNAL_WIDTH)-1:0] s_prev, s_prev2, s_prev_next, s_prev2_next;
-reg s_prev_write;
+reg s_prev_write, s_prev_clr;
 
 wire signed [INTERNAL_WIDTH-1:0] A_iir;
 wire signed [WIDTH_B-1:0] B_iir;
 wire AB_ready_iir, AB_valid_iir, Q_valid_iir;
-wire signed [2*INTERNAL_WIDTH-1:0] Q_iir;
+wire signed [INTERNAL_WIDTH+WIDTH_B-1:0] Q_iir;
 assign Q_iir = (~power_phase) ? Q : '0;
 assign Q_valid_iir = (~power_phase) ? Q_valid : '0;
 assign AB_ready_iir = (~power_phase) ? AB_ready : '0;
@@ -130,6 +130,7 @@ regfile #(INTERNAL_WIDTH) s_prev_reg (
     .rst_n (rst_n),
     .idx   (coeff_idx),
     .write (s_prev_write),
+    .clr   (s_prev_clr),
     .D     (s_prev_next),
     .Q     (s_prev)
 );
@@ -140,6 +141,7 @@ regfile #(INTERNAL_WIDTH) s_prev2_reg (
     .rst_n (rst_n),
     .idx   (coeff_idx),
     .write (s_prev_write),
+    .clr   (s_prev_clr),
     .D     (s_prev2_next),
     .Q     (s_prev2)
 );
@@ -152,7 +154,7 @@ countup_reg #(POWER_WIDTH) max_power_reg (.clk(clk), .rst_n(rst_n), .D(power), .
 wire signed [INTERNAL_WIDTH-1:0] A_pow;
 wire signed [WIDTH_B-1:0] B_pow;
 wire AB_ready_pow, AB_valid_pow, Q_valid_pow;
-wire signed [2*INTERNAL_WIDTH-1:0] Q_pow;
+wire signed [INTERNAL_WIDTH+WIDTH_B-1:0] Q_pow;
 assign Q_pow = (power_phase) ? Q : '0;
 assign Q_valid_pow = (power_phase) ? Q_valid : '0;
 assign AB_ready_pow = (power_phase) ? AB_ready : '0;
@@ -258,7 +260,7 @@ always @* begin
 
 end
 
-assign power_start = (state == STATE_ROW0 & row_idx != NUM_ROWS) | (state == STATE_COL0);
+assign power_start = (state == STATE_ROW0 & row_idx != NUM_ROWS) | (state == STATE_COL0 & col_idx != NUM_COLS);
 
 always @* begin
     stop_samples = 1'b0;
@@ -275,6 +277,7 @@ always @* begin
     max_col_idx_clr = 1'b0;
     max_power_clr = 1'b0;
     valid = 1'b0;
+    s_prev_clr = 1'b0;
     case (state)
         STATE_RESET: begin
             blk_counter_dec = sample_ready & sample_valid;
@@ -295,7 +298,11 @@ always @* begin
         end
         STATE_COL0: begin
             stop_samples = 1'b1;
-            col_phase = 1'b1;
+            if (power_ready & col_idx == NUM_COLS) begin
+                col_phase = 1'b0;
+            end else begin
+                col_phase = 1'b1;
+            end
         end
         STATE_COL1: begin
             stop_samples = 1'b1;
@@ -313,6 +320,7 @@ always @* begin
             valid = 1'b1;
             blk_counter_load = 1'b1;
             max_power_clr = 1'b1;
+            s_prev_clr = 1'b1;
         end
         default: begin
         end
