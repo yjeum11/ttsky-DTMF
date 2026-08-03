@@ -28,7 +28,7 @@ module regfile #(parameter WIDTH = 24) (
     output [WIDTH-1:0] Q
 );
 
-reg [7*WIDTH-1:0] internal;
+reg [4*WIDTH-1:0] internal;
 
 assign Q = internal[WIDTH*idx +: WIDTH];
 

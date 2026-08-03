@@ -22,31 +22,16 @@ module tt_um_yjeum11 #(
 );
 
 localparam NUM_ROWS = 4;
-localparam NUM_COLS = 3;
+localparam NUM_COLS = 4;
 
 localparam POWER_SHIFT = BLOCK_SIZE_BITS - 1;
 localparam POWER_WIDTH = 2*INTERNAL_WIDTH - 2*POWER_SHIFT;
 
-localparam WIDTH_A = INTERNAL_WIDTH;
 localparam POWER_OPERAND_WIDTH = INTERNAL_WIDTH - POWER_SHIFT;
 localparam WIDTH_B = (POWER_OPERAND_WIDTH > COEFF_WIDTH) ? POWER_OPERAND_WIDTH : COEFF_WIDTH;
 
-reg [3:0] row_idx, col_idx, max_row_idx, max_col_idx;
-wire [3:0] s_prev_idx;
-reg row_idx_clr, col_idx_clr, row_idx_inc, col_idx_inc;
-reg max_row_idx_load, max_col_idx_load, max_row_idx_clr, max_col_idx_clr;
-reg [3:0] coeff_idx;
+// ***** IO *****
 
-reg stop_samples, row_phase, col_phase, power_phase;
-
-wire power_start;
-wire power_ready;
-reg power_valid;
-reg max_power_clr, max_power_load;
-reg new_max;
-reg [POWER_WIDTH-1:0] power, max_power;
-
-// TODO: assign I/O pins to these
 reg sample_ready;
 wire sample_valid;
 reg valid;
@@ -60,6 +45,22 @@ assign uio_out[7:3] = '0;
 assign uio_out[1] = 1'b0;
 
 wire _unused = &{uio_in[7:2], uio_in[0], ena, 1'b0};
+
+
+reg [3:0] row_idx, col_idx, max_row_idx, max_col_idx;
+wire [3:0] power_idx;
+reg row_idx_clr, col_idx_clr, row_idx_inc, col_idx_inc;
+reg max_row_idx_load, max_col_idx_load, max_row_idx_clr, max_col_idx_clr;
+reg [3:0] coeff_idx;
+
+reg stop_samples, row_phase, col_phase, power_phase;
+
+wire power_start;
+wire power_ready;
+reg power_valid;
+reg max_power_clr, max_power_load;
+reg new_max;
+reg [POWER_WIDTH-1:0] power, max_power;
 
 reg [BLOCK_SIZE_BITS-1:0] blk_counter;
 reg blk_counter_dec, blk_counter_load;
@@ -77,8 +78,8 @@ always @(posedge clk) begin
     end
 end
 
-assign s_prev_idx = (row_phase) ? row_idx : 
-                    (col_phase) ? col_idx + NUM_ROWS : '0;
+assign power_idx = (row_phase) ? row_idx : 
+                    (col_phase) ? col_idx : '0;
 
 assign max_row_idx_load = new_max & row_phase;
 assign max_col_idx_load = new_max & col_phase;
@@ -98,8 +99,8 @@ reg s_prev_write, s_prev_clr;
 wire signed [INTERNAL_WIDTH-1:0] A_iir;
 wire signed [WIDTH_B-1:0] B_iir;
 wire AB_ready_iir, AB_valid_iir, Q_valid_iir;
-wire signed [INTERNAL_WIDTH+WIDTH_B-1:0] Q_iir;
-assign Q_iir = (~power_phase) ? Q : '0;
+// wire signed [INTERNAL_WIDTH+WIDTH_B-1:0] Q_iir;
+// assign Q_iir = (~power_phase) ? Q : '0;
 assign Q_valid_iir = (~power_phase) ? Q_valid : '0;
 assign AB_ready_iir = (~power_phase) ? AB_ready : '0;
 
@@ -120,7 +121,7 @@ goertzel_iir #(
 
     .A(A_iir), .B(B_iir),
     .AB_ready(AB_ready_iir), .AB_valid(AB_valid_iir),
-    .Q(Q_iir),
+    .Q(Q),
     .Q_valid(Q_valid_iir)
 );
 
@@ -128,7 +129,7 @@ goertzel_iir #(
 regfile #(INTERNAL_WIDTH) s_prev_reg (
     .clk   (clk),
     .rst_n (rst_n),
-    .idx   (coeff_idx),
+    .idx   (regfile_idx),
     .write (s_prev_write),
     .clr   (s_prev_clr),
     .D     (s_prev_next),
@@ -139,7 +140,7 @@ regfile #(INTERNAL_WIDTH) s_prev_reg (
 regfile #(INTERNAL_WIDTH) s_prev2_reg (
     .clk   (clk),
     .rst_n (rst_n),
-    .idx   (coeff_idx),
+    .idx   (regfile_idx),
     .write (s_prev_write),
     .clr   (s_prev_clr),
     .D     (s_prev2_next),
@@ -149,13 +150,11 @@ regfile #(INTERNAL_WIDTH) s_prev2_reg (
 assign new_max = power_valid & (power > max_power);
 assign max_power_load = new_max;
 
-countup_reg #(POWER_WIDTH) max_power_reg (.clk(clk), .rst_n(rst_n), .D(power), .load(max_power_load), .clr(max_power_clr), .inc(), .Q(max_power));
+countup_reg #(POWER_WIDTH) max_power_reg (.clk(clk), .rst_n(rst_n), .D(power), .load(max_power_load), .clr(max_power_clr), .inc(1'b0), .Q(max_power));
 
 wire signed [INTERNAL_WIDTH-1:0] A_pow;
 wire signed [WIDTH_B-1:0] B_pow;
 wire AB_ready_pow, AB_valid_pow, Q_valid_pow;
-wire signed [INTERNAL_WIDTH+WIDTH_B-1:0] Q_pow;
-assign Q_pow = (power_phase) ? Q : '0;
 assign Q_valid_pow = (power_phase) ? Q_valid : '0;
 assign AB_ready_pow = (power_phase) ? AB_ready : '0;
 
@@ -172,11 +171,31 @@ power_calculate #(
     .power,
     .A(A_pow), .B(B_pow),
     .AB_ready(AB_ready_pow), .AB_valid(AB_valid_pow),
-    .Q(Q_pow),
+    .Q(Q),
     .Q_valid(Q_valid_pow)
 );
 
-assign coeff_idx = (power_phase) ? s_prev_idx : iir_coeff_idx;
+// iir_coeff_idx now goes from 0-3 row and col.
+// power_idx goes from 0-3 row and col.
+// coeff_idx goes to coeff_ram. this need to go from 0-6
+// when we are doing iir, coeff_idx needs to add NUM_ROWS
+
+// regfile_idx neds to go from 0-3. 
+
+reg [3:0] regfile_idx;
+
+always @* begin
+    if (power_phase) begin
+        coeff_idx = (col_phase) ? power_idx + NUM_ROWS : power_idx;
+        regfile_idx = power_idx;
+    end else begin
+        coeff_idx = (col_phase) ? iir_coeff_idx + NUM_ROWS : iir_coeff_idx;
+        regfile_idx = iir_coeff_idx;
+    end
+end
+
+// assign coeff_idx = (power_phase) ? power_idx : 
+// wire [3:0] regfile_idx = (col_phase & power_phase) ? coeff_idx - NUM_ROWS : coeff_idx;
 
 coeff_ram coefficients (.idx(coeff_idx), .coeff);
 
@@ -187,11 +206,6 @@ wire AB_valid, AB_ready, Q_valid;
 assign A = (power_phase) ? A_pow : A_iir;
 assign B = (power_phase) ? B_pow : B_iir;
 assign AB_valid = (power_phase) ? AB_valid_pow : AB_valid_iir;
-
-// iir phase- internal width * coeff width (11)
-// power phase- internal width-power shift * internal width-power shift (20 - 9 = 11)
-// 
-
 
 serial_mult #(INTERNAL_WIDTH, WIDTH_B) com_mult (
     .clk      (clk      ),
@@ -208,21 +222,22 @@ serial_mult #(INTERNAL_WIDTH, WIDTH_B) com_mult (
 
 reg [2:0] state, next_state;
 
-localparam STATE_RESET = 3'd0;
+localparam STATE_WAIT0 = 3'd0;
 localparam STATE_ROW0  = 3'd1;
 localparam STATE_ROW1  = 3'd2;
-localparam STATE_COL0  = 3'd3;
-localparam STATE_COL1  = 3'd4;
-localparam STATE_OUT   = 3'd5;
+localparam STATE_WAIT1 = 3'd3;
+localparam STATE_COL0  = 3'd4;
+localparam STATE_COL1  = 3'd5;
+localparam STATE_OUT   = 3'd6;
 
-assign power_phase = row_phase | col_phase;
+// assign power_phase = row_phase | col_phase;
 
 assign sample_ready = iir_sample_ready & ~stop_samples;
 
 always @* begin
     next_state = state;
     case (state)
-        STATE_RESET: begin
+        STATE_WAIT0: begin
             if (blk_counter_0 & iir_valid) begin
                 next_state = STATE_ROW0;
             end
@@ -231,12 +246,17 @@ always @* begin
             if (power_ready & (row_idx != NUM_ROWS)) begin
                 next_state = STATE_ROW1;
             end else if (power_ready & (row_idx == NUM_ROWS)) begin
-                next_state = STATE_COL0;
+                next_state = STATE_WAIT1;
             end
         end
         STATE_ROW1: begin
             if (power_valid) begin
                 next_state = STATE_ROW0;
+            end
+        end
+        STATE_WAIT1: begin
+            if (blk_counter_0 & iir_valid) begin
+                next_state = STATE_COL0;
             end
         end
         STATE_COL0: begin
@@ -252,7 +272,7 @@ always @* begin
             end
         end
         STATE_OUT: begin
-            next_state = STATE_RESET;
+            next_state = STATE_WAIT0;
         end
         default: begin
         end
@@ -266,6 +286,7 @@ always @* begin
     stop_samples = 1'b0;
     blk_counter_dec = 1'b0;
     blk_counter_load = 1'b0;
+    power_phase = 1'b0;
     row_phase = 1'b0;
     col_phase = 1'b0;
     // power_start = 1'b0;
@@ -279,48 +300,63 @@ always @* begin
     valid = 1'b0;
     s_prev_clr = 1'b0;
     case (state)
-        STATE_RESET: begin
+        STATE_WAIT0: begin
             blk_counter_dec = sample_ready & sample_valid;
+            row_phase = 1'b1;
         end
         STATE_ROW0: begin
             stop_samples = 1'b1;
-            row_phase = 1'b1;
             if (power_ready & row_idx == NUM_ROWS) begin
+                row_idx_clr = 1'b1;
+                blk_counter_load = 1'b1;
                 max_power_clr = 1'b1;
+                s_prev_clr = 1'b1;
+                row_phase = 1'b0;
+                power_phase = 1'b0;
+            end else begin
+                row_phase = 1'b1;
+                power_phase = 1'b1;
             end
         end
         STATE_ROW1: begin
             stop_samples = 1'b1;
             row_phase = 1'b1;
+            power_phase = 1'b1;
             if (power_valid) begin
                 row_idx_inc = power_valid;
             end
         end
+        STATE_WAIT1: begin
+            blk_counter_dec = sample_ready & sample_valid;
+            col_phase = 1'b1;
+        end
         STATE_COL0: begin
             stop_samples = 1'b1;
             if (power_ready & col_idx == NUM_COLS) begin
+                col_idx_clr = 1'b1;
+                blk_counter_load = 1'b1;
+                max_power_clr = 1'b1;
+                s_prev_clr = 1'b1;
                 col_phase = 1'b0;
+                power_phase = 1'b0;
             end else begin
                 col_phase = 1'b1;
+                power_phase = 1'b1;
             end
         end
         STATE_COL1: begin
             stop_samples = 1'b1;
             col_phase = 1'b1;
+            power_phase = 1'b1;
             if (power_valid) begin
                 col_idx_inc = 1'b1;
             end
         end
         STATE_OUT: begin
             stop_samples = 1'b1;
-            row_idx_clr = 1'b1;
-            col_idx_clr = 1'b1;
+            valid = 1'b1;
             max_row_idx_clr = 1'b1;
             max_col_idx_clr = 1'b1;
-            valid = 1'b1;
-            blk_counter_load = 1'b1;
-            max_power_clr = 1'b1;
-            s_prev_clr = 1'b1;
         end
         default: begin
         end
@@ -330,7 +366,7 @@ end
 
 always @(posedge clk) begin
     if (~rst_n) begin
-        state <= STATE_RESET;
+        state <= STATE_WAIT0;
     end else begin
         state <= next_state;
     end

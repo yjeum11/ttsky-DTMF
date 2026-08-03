@@ -7,7 +7,7 @@ FRAC_BITS = 10
 POWER_SHIFT = 2 * (BLOCK_SIZE.bit_length() - 1)
 
 ROW_FREQS = [697, 770, 852, 941]
-COL_FREQS = [1209, 1336, 1477]
+COL_FREQS = [1209, 1336, 1477, 1633]
 
 def truncate_signed(val, bits):
     # 1. Clear the higher-order bits (Unsigned mask)
@@ -123,6 +123,7 @@ def load_wav_mono(path: str):
     return data, sample_rate
 
 if __name__ == "__main__":
-    wave_data, sample_rate = load_wav_mono(sys.argv[1])
-    print(all_goertzel_sprevs(wave_data[0:512], sample_rate))
+    # wave_data, sample_rate = load_wav_mono(sys.argv[1])
+    get_coeffs()
+    # print(all_goertzel_sprevs(wave_data[0:512], sample_rate))
     # goertzel_power_fixed(wave_data[0:8], sample_rate, 697)

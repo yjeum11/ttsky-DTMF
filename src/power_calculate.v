@@ -22,8 +22,6 @@ module power_calculate #(
 
 reg [1:0] selA, selB;
 
-wire [INTERNAL_WIDTH-1:0] s_prev_shifted;
-
 assign A = (selA == 0) ? $signed((s_prev >>> POWER_SHIFT)) :
            (selA == 1) ? $signed(-(s_prev2 >>> POWER_SHIFT)) :
            '0;
@@ -52,14 +50,14 @@ end
 
 reg [3:0] state, next_state;
 localparam STATE_INIT        = 0;
-localparam STATE_WAIT_MULT0  = 2;
-localparam STATE_SETUP_MULT1 = 3;
-localparam STATE_WAIT_MULT1  = 4;
-localparam STATE_SETUP_MULT2 = 5;
-localparam STATE_WAIT_MULT2  = 6;
-localparam STATE_SETUP_MULT3 = 7;
-localparam STATE_WAIT_MULT3  = 8;
-localparam STATE_OUTPUT  =     9;
+localparam STATE_WAIT_MULT0  = 1;
+localparam STATE_SETUP_MULT1 = 2;
+localparam STATE_WAIT_MULT1  = 3;
+localparam STATE_SETUP_MULT2 = 4;
+localparam STATE_WAIT_MULT2  = 5;
+localparam STATE_SETUP_MULT3 = 6;
+localparam STATE_WAIT_MULT3  = 7;
+localparam STATE_OUTPUT  =     8;
 
 always @* begin
     next_state = state;

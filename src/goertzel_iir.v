@@ -93,7 +93,7 @@ always @* begin
         STATE_MULT_WAIT: begin
             if (Q_valid) begin
                 internal_load = 1'b1;
-                if (coeff_idx != 4'd6)
+                if (coeff_idx != 4'd3)
                     idx_inc = 1'b1;
             end
         end
@@ -123,7 +123,7 @@ always @* begin
         end
         STATE_MULT_WAIT: begin
             if (Q_valid) begin
-                if (coeff_idx == 4'd6) begin
+                if (coeff_idx == 4'd3) begin
                     next_state = STATE_OUTPUT;
                 end else begin
                     next_state = STATE_MULT_INIT;
