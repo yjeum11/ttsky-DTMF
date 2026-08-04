@@ -33,12 +33,7 @@ def make_gap(sample_rate=SAMPLE_RATE, noise_amplitude=0.01):
     return np.random.normal(0, noise_amplitude, n)
 
 
-def synthesize(digits, path):
-    """
-    Writes unsigned 8-bit PCM (0..255, 128 = silence) -- matches the WAV
-    spec's convention that 8-bit samples are unsigned, unlike 16-bit+
-    which are signed.
-    """
+def synthesize(digits):
     chunks = []
     for d in digits:
         chunks.append(make_tone(d))
@@ -46,17 +41,19 @@ def synthesize(digits, path):
     audio = np.concatenate(chunks)
     audio = np.clip(audio, -1.0, 1.0)
     pcm = np.round(audio * 127 + 128).astype(np.uint8)
+    return pcm
 
+def synth_and_write(digits, path):
+    pcm = synthesize(digits)
     with wave.open(path, "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(1)
         wf.setframerate(SAMPLE_RATE)
         wf.writeframes(pcm.tobytes())
 
-
 if __name__ == "__main__":
     digits = sys.argv[1] if len(sys.argv) > 1 else "149*45"
     out = sys.argv[2] if len(sys.argv) > 2 else "dtmf.wav"
-    synthesize(digits, out)
+    synth_and_write(digits, out)
     print(f"Wrote {out} (8-bit unsigned PCM) with digits: {digits}")
 

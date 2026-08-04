@@ -7,7 +7,8 @@ from cocotb.triggers import ClockCycles, RisingEdge
 import random
 import wave
 import numpy as np
-from dtmf_goertzel import all_goertzel_sprevs, goertzel_power_fixed, goertzel_sprevs, all_powers
+from dtmf_goertzel import all_goertzel_sprevs, goertzel_power_fixed, goertzel_sprevs, all_powers, get_max_rowcol
+from synth import synthesize
 
 @cocotb.test()
 async def test_toplevel(dut):
@@ -18,57 +19,87 @@ async def test_toplevel(dut):
     await reset_dut(dut)
 
     samples = []
-    with wave.open("./one.wav", 'rb') as wavfile:
-        n_frames = wavfile.getnframes()
-        b = wavfile.readframes(n_frames)
-        samples = np.frombuffer(b, dtype=np.uint8).astype(np.float64) - 128.0
 
-    await block(dut, samples[0:512], 512, 4)
-    await block(dut, samples[512:1024], 512, 4, is_col=True)
+    # with wave.open("./one.wav", 'rb') as wavfile:
+    # n_frames = wavfile.getnframes()
+    # b = wavfile.readframes(n_frames)
+    samples = np.frombuffer(synthesize(['#']), dtype=np.uint8).astype(np.float64) - 128.0
 
-async def block(dut, samples, block_size, num_powers, is_col=False):
+    await superblock(dut, samples, 512)
+
+    # await block(dut, samples[0:512], 512)
+    # await block(dut, samples[512:1024], 512, is_col=True)
+
+async def get_result(dut):
+    while dut.uio_out.value[2] != 1:
+        await RisingEdge(dut.clk)
+    return dut.uo_out.value
+
+async def superblock(dut, samples, block_size):
+    assert len(samples) >= block_size
+
+    result_task = cocotb.start_soon(get_result(dut))
+
+    await block(dut, samples[0:block_size], block_size)
+    await block(dut, samples[block_size:2*block_size], block_size, is_col=True)
+
+    outval = await result_task
+
+    sim_row_idx = outval[7:4].to_unsigned()
+    sim_col_idx = outval[3:0].to_unsigned()
+
+    golden_row_idx, golden_col_idx = get_max_rowcol(samples, 44100)
+
+    print(f"sim row: {sim_row_idx}")
+    print(f"sim col: {sim_col_idx}")
+
+    assert sim_row_idx == golden_row_idx
+    assert sim_col_idx == golden_col_idx
+
+
+async def block(dut, samples, block_size, is_col=False):
     assert len(samples) == block_size
-    power_task = cocotb.start_soon(get_power_values(dut, num_powers))
-    s_prev_task = cocotb.start_soon(get_sprev_values(dut, block_size, 4 if is_col else 0))
+    # power_task = cocotb.start_soon(get_power_values(dut, num_powers))
+    # s_prev_task = cocotb.start_soon(get_sprev_values(dut, block_size, 4 if is_col else 0))
 
     for s in samples:
         s = int(s)
-        while dut.user_project.sample_ready.value != 1:
+        while dut.uio_out[0].value != 1:
             await RisingEdge(dut.clk)
         await ClockCycles(dut.clk, 3)
-        dut.user_project.sample_valid.value = 1
+        dut.uio_in[1].value = 1
         dut.ui_in.value = s
         await RisingEdge(dut.clk)
-        dut.user_project.sample_valid.value = 0
+        dut.uio_in[1].value = 0
         await RisingEdge(dut.clk)
 
-    while dut.user_project.sample_ready.value != 1:
+    while dut.uio_out[0].value != 1:
         await RisingEdge(dut.clk)
 
-    print("done with samples")
-    sim_powers = await power_task
-    print("power task")
-    sim_s_prev = await s_prev_task
-    print("s_prev_task")
+    # print("done with samples")
+    # sim_powers = await power_task
+    # print("power task")
+    # sim_s_prev = await s_prev_task
+    # print("s_prev_task")
 
     golden_s_prev = None
-    if not is_col:
-        golden_s_prev = goertzel_sprevs(samples, 44100, 697)
-    else:
-        golden_s_prev = goertzel_sprevs(samples, 44100, 1209)
+    # if not is_col:
+        # golden_s_prev = goertzel_sprevs(samples, 44100, 697)
+    # else:
+        # golden_s_prev = goertzel_sprevs(samples, 44100, 1209)
     # print(f"golden s_prev: {golden_s_prev}")
     # print(f"sim s_prev: {sim_s_prev}")
     
-    for i, (x, y) in enumerate(zip(golden_s_prev, sim_s_prev[1:])):
-        if x != y:
-            print(f"wrong at idx {i}, gold={x}, sim={y}")
-            break
+    # for i, (x, y) in enumerate(zip(golden_s_prev, sim_s_prev[1:])):
+    #     if x != y:
+    #         print(f"wrong at idx {i}, gold={x}, sim={y}")
+    #         break
 
-    golden_powers = all_powers(samples)
+    # golden_powers = all_powers(samples)
 
-    print(f"golden powers: {golden_powers}")
-    print(f"sim powers: {sim_powers}")
-    print(f"max_row: {dut.user_project.max_row_idx.value}, max_col: {dut.user_project.max_col_idx.value}")
+    # print(f"golden powers: {golden_powers}")
+    # print(f"sim powers: {sim_powers}")
+    # print(f"max_row: {dut.user_project.max_row_idx.value}, max_col: {dut.user_project.max_col_idx.value}")
 
     # assert golden_powers == sim_powers
 

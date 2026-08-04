@@ -100,6 +100,22 @@ def goertzel_power_fixed(samples: np.ndarray, sample_rate: float,
 
     return power
 
+def get_max_rowcol(samples, sample_rate):
+    row_powers = []
+    col_powers = []
+    for row in ROW_FREQS:
+        row_powers.append(goertzel_power_fixed(samples, sample_rate, row))
+    for col in COL_FREQS:
+        col_powers.append(goertzel_power_fixed(samples, sample_rate, col))
+
+    row_idx = np.argmax(row_powers)
+    col_idx = np.argmax(col_powers)
+
+    print(f"row idx: {row_idx}")
+    print(f"col idx: {col_idx}")
+
+    return (row_idx, col_idx)
+
 def load_wav_mono(path: str):
     with wave.open(path, "rb") as wf:
         n_channels = wf.getnchannels()

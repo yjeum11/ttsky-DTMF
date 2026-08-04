@@ -335,7 +335,6 @@ always @* begin
             if (power_ready & col_idx == NUM_COLS) begin
                 col_idx_clr = 1'b1;
                 blk_counter_load = 1'b1;
-                max_power_clr = 1'b1;
                 s_prev_clr = 1'b1;
                 col_phase = 1'b0;
                 power_phase = 1'b0;
@@ -354,9 +353,11 @@ always @* begin
         end
         STATE_OUT: begin
             stop_samples = 1'b1;
-            valid = 1'b1;
+            if (max_power > 100)
+                valid = 1'b1;
             max_row_idx_clr = 1'b1;
             max_col_idx_clr = 1'b1;
+            max_power_clr = 1'b1;
         end
         default: begin
         end
