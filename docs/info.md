@@ -9,12 +9,17 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-Dual-Tone Modulation 
+Dual-Tone Multi Frequency (DTMF) signaling is a way of signaling between telephone equipment which uses two different  
+
+The circuit works by implementing a discrete Fourier transform (DFT) using the Goertzel algorithm, which is standard for this use case.
+
+The DFT makes it possible for us to determine which of the DTMF frequencies are active in the incoming signal.
+Goertzel makes it very simple to calculate DFT terms for a fixed target frequency using only a few multiplications and additions.
 
 ## How to test
 
-Explain how to use your project
+The chip takes unsigned 8-bit samples centered at 128 through a ready-valid handshake. When the chip signals 
 
 ## External hardware
 
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
+

@@ -23,9 +23,10 @@ async def test_toplevel(dut):
     # with wave.open("./one.wav", 'rb') as wavfile:
     # n_frames = wavfile.getnframes()
     # b = wavfile.readframes(n_frames)
-    samples = np.frombuffer(synthesize(['#']), dtype=np.uint8).astype(np.float64) - 128.0
 
-    await superblock(dut, samples, 512)
+    await superblock(dut, 512, '#')
+    # await superblock(dut, 512, '1')
+    # await superblock(dut, 512, '2')
 
     # await block(dut, samples[0:512], 512)
     # await block(dut, samples[512:1024], 512, is_col=True)
@@ -35,7 +36,9 @@ async def get_result(dut):
         await RisingEdge(dut.clk)
     return dut.uo_out.value
 
-async def superblock(dut, samples, block_size):
+async def superblock(dut, block_size, key='1'):
+    samples = np.frombuffer(synthesize([key]), dtype=np.uint8).astype(np.float64) - 128
+
     assert len(samples) >= block_size
 
     result_task = cocotb.start_soon(get_result(dut))
@@ -62,7 +65,9 @@ async def block(dut, samples, block_size, is_col=False):
     # power_task = cocotb.start_soon(get_power_values(dut, num_powers))
     # s_prev_task = cocotb.start_soon(get_sprev_values(dut, block_size, 4 if is_col else 0))
 
-    for s in samples:
+    for i, s in enumerate(samples):
+        if i % 10 == 0:
+            print(f"{i} samples")
         s = int(s)
         while dut.uio_out.value[0] != 1:
             await RisingEdge(dut.clk)
