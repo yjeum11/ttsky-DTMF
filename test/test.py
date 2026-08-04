@@ -64,16 +64,16 @@ async def block(dut, samples, block_size, is_col=False):
 
     for s in samples:
         s = int(s)
-        while dut.uio_out[0].value != 1:
+        while dut.uio_out.value[0] != 1:
             await RisingEdge(dut.clk)
         await ClockCycles(dut.clk, 3)
-        dut.uio_in[1].value = 1
+        dut.uio_in.value = 2
         dut.ui_in.value = s
         await RisingEdge(dut.clk)
-        dut.uio_in[1].value = 0
+        dut.uio_in.value = 0
         await RisingEdge(dut.clk)
 
-    while dut.uio_out[0].value != 1:
+    while dut.uio_out.value[0] != 1:
         await RisingEdge(dut.clk)
 
     # print("done with samples")
@@ -82,7 +82,7 @@ async def block(dut, samples, block_size, is_col=False):
     # sim_s_prev = await s_prev_task
     # print("s_prev_task")
 
-    golden_s_prev = None
+    # golden_s_prev = None
     # if not is_col:
         # golden_s_prev = goertzel_sprevs(samples, 44100, 697)
     # else:
