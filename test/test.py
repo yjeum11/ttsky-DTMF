@@ -16,6 +16,8 @@ async def test_toplevel(dut):
     # Set the clock period to 10 us (100 KHz)
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
     await reset_dut(dut)
 
     samples = []

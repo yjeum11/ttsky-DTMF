@@ -32,6 +32,20 @@ localparam WIDTH_B = (POWER_OPERAND_WIDTH > COEFF_WIDTH) ? POWER_OPERAND_WIDTH :
 
 // ***** IO *****
 
+
+reg [3:0] row_idx, col_idx, max_row_idx, max_col_idx;
+wire [3:0] power_idx;
+reg row_idx_clr, col_idx_clr, row_idx_inc, col_idx_inc;
+reg max_row_idx_load, max_col_idx_load, max_row_idx_clr, max_col_idx_clr;
+reg [3:0] coeff_idx;
+
+wire AB_valid, AB_ready, Q_valid;
+wire signed [INTERNAL_WIDTH-1:0] A;
+wire signed [WIDTH_B-1:0] B;
+wire [INTERNAL_WIDTH+WIDTH_B-1:0] Q;
+
+reg [3:0] regfile_idx;
+
 reg sample_ready;
 wire sample_valid;
 reg valid;
@@ -45,13 +59,6 @@ assign uio_out[7:3] = '0;
 assign uio_out[1] = 1'b0;
 
 wire _unused = &{uio_in[7:2], uio_in[0], ena, 1'b0};
-
-
-reg [3:0] row_idx, col_idx, max_row_idx, max_col_idx;
-wire [3:0] power_idx;
-reg row_idx_clr, col_idx_clr, row_idx_inc, col_idx_inc;
-reg max_row_idx_load, max_col_idx_load, max_row_idx_clr, max_col_idx_clr;
-reg [3:0] coeff_idx;
 
 reg stop_samples, row_phase, col_phase, power_phase;
 
@@ -182,8 +189,6 @@ power_calculate #(
 
 // regfile_idx neds to go from 0-3. 
 
-reg [3:0] regfile_idx;
-
 always @* begin
     if (power_phase) begin
         coeff_idx = (col_phase) ? power_idx + NUM_ROWS : power_idx;
@@ -199,10 +204,6 @@ end
 
 coeff_ram coefficients (.idx(coeff_idx), .coeff);
 
-wire signed [INTERNAL_WIDTH-1:0] A;
-wire signed [WIDTH_B-1:0] B;
-wire [INTERNAL_WIDTH+WIDTH_B-1:0] Q;
-wire AB_valid, AB_ready, Q_valid;
 assign A = (power_phase) ? A_pow : A_iir;
 assign B = (power_phase) ? B_pow : B_iir;
 assign AB_valid = (power_phase) ? AB_valid_pow : AB_valid_iir;
