@@ -19,7 +19,7 @@ SAMPLE_RATE = 44100
 TONE_MS = 1000
 GAP_MS = 100
 
-def make_tone(digit, sample_rate=SAMPLE_RATE, amplitude=0.4, noise_amplitude=0.01):
+def make_tone(digit, sample_rate=SAMPLE_RATE, amplitude=0.4, noise_amplitude=0.05):
     f_row, f_col = KEYPAD[digit]
     n = int(sample_rate * TONE_MS / 1000.0)
     t = np.arange(n) / sample_rate
