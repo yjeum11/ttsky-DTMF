@@ -57,6 +57,8 @@ As a result, it will take __1024__ samples to compute the exact key that was pre
 With this change in place, we compute the next state of four IIR filters for each sample and the signal power of four frequencies for each sample block.
 This allows us to store the state of only four IIR filters which cuts the register file in half.
 
+![block diagram](./docs/ttsky-diagram.png)
+
 ## How to test
 
 The chip takes unsigned 8-bit samples centered at 128 through a ready-valid handshake. When the chip signals that it is ready for a new sample, it will wait until the `sample_valid` signal is asserted, then latch the value in `ui_in` as the new sample.

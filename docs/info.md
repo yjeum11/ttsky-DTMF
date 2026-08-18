@@ -6,6 +6,8 @@ You have probably heard DTMF in action when pressing the keypad buttons on a tel
 
 The circuit works by implementing a discrete Fourier transform (DFT) using the Goertzel algorithm, which is standard for this use case.
 
+![block diagram](./ttsky-diagram.png)
+
 ### Description of algorithm
 
 The Goertzel algorithm works based on sample blocks, which I chose to be 512 samples long for this project.
