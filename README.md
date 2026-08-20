@@ -1,14 +1,15 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-## What is Tiny Tapeout?
+# DTMF (Touch-Tone) decoder
 
-Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital and analog designs manufactured on a real chip.
-
-## How it works
 Dual-Tone Multi Frequency (DTMF) signaling is a way of signaling between telephone equipment which uses two different frequencies to indicate which key has been pressed. 
 You have probably heard DTMF in action when pressing the keypad buttons on a telephone. One frequency indicates the row of the pressed key in the keypad, and the other frequency indicates the column. The tone that is played is the combination of the two frequencies, which is the DTMF encoding of the key you just pressed.
 
 ![DTMF keypad](./docs/keypad.png)
+
+The chip successfully synthesized to the [Skywater 130nm process](https://github.com/google/skywater-pdk) at a clock frequency of 50 MHz in two Tiny Tapeout tiles. Only open-source tools were used in the development and testing of the chip (Icarus Verilog and cocotb for simulation, Librelane for synthesis).
+
+## How it works
 
 The circuit works by implementing a discrete Fourier transform (DFT) using the Goertzel algorithm, which is standard for this use case.
 
@@ -73,10 +74,4 @@ After feeding in 1024 samples, the chip will assert `valid`. Verify that the num
 
 ## What next?
 
-- [Submit your design to the next shuttle](https://app.tinytapeout.com/).
-- Edit [this README](README.md) and explain your design, how it works, and how to test it.
-- Share your project on your social network of choice:
-  - LinkedIn [#tinytapeout](https://www.linkedin.com/search/results/content/?keywords=%23tinytapeout) [@TinyTapeout](https://www.linkedin.com/company/100708654/)
-  - Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
-  - X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
-  - Bluesky [@tinytapeout.com](https://bsky.app/profile/tinytapeout.com)
+I want to integrate this chip with an actual microphone connected to an FPGA dev board for testing and demo purposes. This will have to wait until next year though until I am discharged from my military service.
